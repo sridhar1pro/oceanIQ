@@ -1,28 +1,43 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 export default function OceanIQAssistant({
   onExecuteAIAction,
   onOpenCoastalRisk,
   onOpenGlider,
   onOpenDiscrepancy,
+  onOpenWorldMonitor
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '')
+  const [savedKeyMsg, setSavedKeyMsg] = useState('')
   const [query, setQuery] = useState('')
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      text: 'Hello! I am OceanIQ AI, your intelligent oceanographic assistant for INCOIS SIH-26067. Ask me about 3D volumetric depth layers, autonomous gliders, marine heatwaves, or coastal hazard indices.'
+      text: '🌊 **Welcome to OceanIQ AI**!\n\nI am your scientific oceanographic co-pilot for **INCOIS & MoES (SIH-26067)**. You can ask me questions in plain English, such as:\n- *"Why does the ocean look yellow and speedily move like wind?"*\n- *"Track live AIS ships and tankers"*\n- *"Show Cyclone Midhili-II warning cone"*\n- *"Display 3D sawtooth glider telemetry"*',
+      engine: 'OceanIQ Expert Engine'
     }
   ])
   const [loading, setLoading] = useState(false)
 
   const quickPrompts = [
-    { label: '🌊 Bay of Bengal Waves', query: 'Show wave height in Bay of Bengal' },
-    { label: '🤖 Track Glider 3D Sawtooth', query: 'Track autonomous glider sawtooth mission' },
-    { label: '🚨 Coastal Hazard Warning', query: 'Show coastal multi-hazard risk index for Puri and Visakhapatnam' },
-    { label: '⚠️ High Discrepancy Argo Floats', query: 'Inspect high discrepancy argo floats' },
-    { label: '🧪 Ocean Acidification (pH)', query: 'Show ocean acidity pH at sea surface' },
+    { label: '🌊 Why Ocean Yellow & Speedy?', query: 'why the ocean color looks yellow and speedily move like wind' },
+    { label: '🚢 Track Live AIS Ships', query: 'Show live maritime ships and tankers in Indian Ocean' },
+    { label: '🌪️ Cyclone Midhili-II Alert', query: 'Show active cyclones and storm surge warnings' },
+    { label: '🤖 Glider 3D Sawtooth', query: 'Track autonomous glider sawtooth mission in Bay of Bengal' },
+    { label: '📹 Live Harbor Cameras', query: 'Show live coastal harbor webcam feeds' },
+    { label: '🚨 Coastal Risk Dashboard', query: 'Show coastal multi-hazard risk index for Puri and Visakhapatnam' },
   ]
+
+  const handleSaveApiKey = () => {
+    localStorage.setItem('gemini_api_key', apiKey.trim())
+    setSavedKeyMsg('API Key saved successfully!')
+    setTimeout(() => {
+      setSavedKeyMsg('')
+      setShowSettings(false)
+    }, 1200)
+  }
 
   const handleSend = async (textToSend) => {
     const q = textToSend || query
@@ -37,23 +52,29 @@ export default function OceanIQAssistant({
       const res = await fetch('/api/ai/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q })
+        body: JSON.stringify({ 
+          query: q,
+          api_key: apiKey.trim() || undefined
+        })
       })
       const data = await res.json()
 
       setMessages(prev => [...prev, {
         role: 'assistant',
         text: data.response,
-        action: data.action
+        action: data.action,
+        engine: data.engine
       }])
 
-      // Execute action callback in parent
+      // Execute action callback in parent (camera flight, variable switch, vector speed adjust)
       if (onExecuteAIAction) {
         onExecuteAIAction(data)
       }
 
       // Automatically open related panels
-      if (data.open_panel === 'coastal_risk' && onOpenCoastalRisk) {
+      if (data.open_panel === 'world_monitor' && onOpenWorldMonitor) {
+        onOpenWorldMonitor()
+      } else if (data.open_panel === 'coastal_risk' && onOpenCoastalRisk) {
         onOpenCoastalRisk()
       } else if (data.open_panel === 'glider' && onOpenGlider) {
         onOpenGlider()
@@ -73,7 +94,7 @@ export default function OceanIQAssistant({
   }
 
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 30 }}>
+    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 40 }}>
       {/* Floating Assistant Launcher Button */}
       {!isOpen && (
         <button
@@ -82,7 +103,7 @@ export default function OceanIQAssistant({
             background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
             border: 'none',
             borderRadius: '50px',
-            padding: '12px 20px',
+            padding: '12px 22px',
             color: '#fff',
             fontWeight: 700,
             fontSize: '0.85rem',
@@ -99,10 +120,10 @@ export default function OceanIQAssistant({
           <span style={{
             fontSize: '0.65rem',
             background: 'rgba(255,255,255,0.25)',
-            padding: '2px 6px',
+            padding: '2px 7px',
             borderRadius: 10
           }}>
-            SIH-26067
+            {apiKey ? 'Gemini 2.5' : 'AI / OSINT'}
           </span>
         </button>
       )}
@@ -111,14 +132,14 @@ export default function OceanIQAssistant({
       {isOpen && (
         <div
           style={{
-            width: 380,
-            height: 520,
-            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            width: 420,
+            height: 560,
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(99, 102, 241, 0.35)',
-            borderRadius: '16px',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.7), 0 0 30px rgba(99,102,241,0.15)',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            borderRadius: '18px',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8), 0 0 35px rgba(99,102,241,0.25)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -128,7 +149,7 @@ export default function OceanIQAssistant({
           {/* Header */}
           <div style={{
             padding: '12px 16px',
-            background: 'linear-gradient(90deg, rgba(99,102,241,0.25), rgba(6,182,212,0.25))',
+            background: 'linear-gradient(90deg, rgba(99,102,241,0.3), rgba(6,182,212,0.3))',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
             display: 'flex',
             alignItems: 'center',
@@ -137,94 +158,177 @@ export default function OceanIQAssistant({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: '1.2rem' }}>✨</span>
               <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
                   OceanIQ Intelligence Assistant
+                  <span style={{
+                    fontSize: '0.65rem',
+                    padding: '1px 6px',
+                    borderRadius: 8,
+                    background: apiKey ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.3)',
+                    color: apiKey ? '#34d399' : '#a5b4fc',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                  }}>
+                    {apiKey ? 'Gemini API' : 'Expert Brain'}
+                  </span>
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                  Natural Language Oceanographic Controls
+                  INCOIS Ocean Twin & Maritime OSINT Operator
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                fontSize: '1.2rem',
-                cursor: 'pointer'
-              }}
-            >
-              ✕
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                title="AI Settings / Gemini API Key"
+                style={{
+                  background: showSettings ? 'rgba(99, 102, 241, 0.4)' : 'transparent',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 6,
+                  color: '#94a3b8',
+                  fontSize: '0.85rem',
+                  padding: '4px 7px',
+                  cursor: 'pointer'
+                }}
+              >
+                ⚙️
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  padding: '2px 6px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
-          {/* Quick Prompts Chips */}
+          {/* Settings Drawer */}
+          {showSettings && (
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: 'rgba(30, 41, 59, 0.95)',
+              borderBottom: '1px solid rgba(255,255,255,0.1)',
+              fontSize: '0.78rem'
+            }}>
+              <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>
+                Google Gemini API Configuration (Optional)
+              </div>
+              <p style={{ color: '#94a3b8', marginBottom: 8, fontSize: '0.72rem' }}>
+                Enter your Gemini API key to enable live Gemini 2.5 Flash conversational reasoning. If left empty, OceanIQ operates in built-in offline expert mode.
+              </p>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="password"
+                  placeholder="AIzaSy..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid rgba(99,102,241,0.4)',
+                    borderRadius: 6,
+                    padding: '6px 10px',
+                    color: '#fff',
+                    fontSize: '0.75rem'
+                  }}
+                />
+                <button
+                  onClick={handleSaveApiKey}
+                  style={{
+                    background: '#6366f1',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '6px 12px',
+                    color: '#fff',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+              {savedKeyMsg && (
+                <div style={{ color: '#34d399', fontSize: '0.72rem', marginTop: 4 }}>
+                  {savedKeyMsg}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Quick Prompts Chips Carousel */}
           <div style={{
             padding: '8px 12px',
-            backgroundColor: 'rgba(30, 41, 59, 0.5)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             display: 'flex',
             gap: 6,
             overflowX: 'auto',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            background: 'rgba(15, 23, 42, 0.5)'
           }}>
-            {quickPrompts.map((qp, idx) => (
+            {quickPrompts.map((p, idx) => (
               <button
                 key={idx}
-                onClick={() => handleSend(qp.query)}
+                onClick={() => handleSend(p.query)}
                 style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'rgba(30, 41, 59, 0.8)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: 14,
+                  padding: '4px 10px',
                   color: '#cbd5e1',
-                  borderRadius: 12,
-                  padding: '4px 8px',
-                  fontSize: '0.68rem',
-                  fontWeight: 600,
+                  fontSize: '0.72rem',
                   cursor: 'pointer',
                   flexShrink: 0
                 }}
               >
-                {qp.label}
+                {p.label}
               </button>
             ))}
           </div>
 
-          {/* Chat Messages */}
+          {/* Chat Messages Log */}
           <div style={{
             flex: 1,
-            padding: '14px',
+            padding: 14,
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            gap: 10
+            gap: 12,
+            fontSize: '0.8rem'
           }}>
             {messages.map((m, idx) => (
               <div
                 key={idx}
                 style={{
                   alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '85%',
-                  backgroundColor: m.role === 'user' ? '#4f46e5' : 'rgba(30, 41, 59, 0.8)',
+                  maxWidth: '90%',
+                  background: m.role === 'user'
+                    ? 'linear-gradient(135deg, #4f46e5, #06b6d4)'
+                    : 'rgba(30, 41, 59, 0.85)',
                   border: m.role === 'user' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#fff',
-                  borderRadius: '12px',
-                  padding: '10px 12px',
-                  fontSize: '0.78rem',
-                  lineHeight: '1.4'
+                  borderRadius: m.role === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                  padding: '10px 14px',
+                  color: '#f8fafc',
+                  lineHeight: 1.5,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  whiteSpace: 'pre-line'
                 }}
               >
                 {m.text}
-                {m.action && m.action !== 'INFO' && (
+                {m.engine && (
                   <div style={{
+                    fontSize: '0.62rem',
+                    color: '#94a3b8',
                     marginTop: 6,
-                    fontSize: '0.68rem',
-                    color: '#67e8f9',
-                    fontWeight: 600,
-                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                    borderTop: '1px solid rgba(255,255,255,0.08)',
                     paddingTop: 4
                   }}>
-                    ⚡ Executed 3D Action: {m.action}
+                    Engine: {m.engine}
                   </div>
                 )}
               </div>
@@ -232,64 +336,68 @@ export default function OceanIQAssistant({
             {loading && (
               <div style={{
                 alignSelf: 'flex-start',
-                backgroundColor: 'rgba(30, 41, 59, 0.8)',
-                padding: '8px 12px',
-                borderRadius: '12px',
+                background: 'rgba(30, 41, 59, 0.85)',
+                padding: '8px 14px',
+                borderRadius: 12,
+                color: '#94a3b8',
                 fontSize: '0.75rem',
-                color: '#94a3b8'
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
               }}>
-                Analyzing ocean model telemetry...
+                <span className="animate-spin">⟳</span> Reasoning ocean physics & dispatching 3D twin actions...
               </div>
             )}
           </div>
 
-          {/* Query Input */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleSend()
-            }}
-            style={{
-              padding: '10px 12px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              gap: 8,
-              backgroundColor: 'rgba(15, 23, 42, 0.8)'
-            }}
-          >
+          {/* Input Footer */}
+          <div style={{
+            padding: 10,
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'rgba(15, 23, 42, 0.8)',
+            display: 'flex',
+            gap: 8
+          }}>
             <input
               type="text"
-              placeholder="e.g. Focus on Bay of Bengal wave height..."
+              placeholder="Ask anything (e.g. why is the ocean yellow?)..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
               style={{
                 flex: 1,
-                backgroundColor: 'rgba(30, 41, 59, 0.8)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: 8,
-                padding: '8px 12px',
+                background: 'rgba(30, 41, 59, 0.8)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                borderRadius: 10,
+                padding: '10px 12px',
                 color: '#fff',
                 fontSize: '0.8rem',
                 outline: 'none'
               }}
             />
             <button
-              type="submit"
+              onClick={() => handleSend()}
               disabled={loading || !query.trim()}
               style={{
                 background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
                 border: 'none',
-                borderRadius: 8,
-                padding: '0 14px',
+                borderRadius: 10,
+                padding: '0 16px',
                 color: '#fff',
-                fontWeight: 700,
-                cursor: 'pointer',
-                opacity: loading || !query.trim() ? 0.5 : 1
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                cursor: loading || !query.trim() ? 'not-allowed' : 'pointer',
+                opacity: loading || !query.trim() ? 0.6 : 1
               }}
             >
               Send
             </button>
-          </form>
+          </div>
         </div>
       )}
     </div>

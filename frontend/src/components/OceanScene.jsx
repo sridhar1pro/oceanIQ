@@ -7,6 +7,7 @@ import PointAnalytics from './PointAnalytics.jsx'
 import UploadModal from './UploadModal.jsx'
 import CoastalRiskPanel from './CoastalRiskPanel.jsx'
 import OceanIQAssistant from './OceanIQAssistant.jsx'
+import WorldMonitorPanel from './WorldMonitorPanel.jsx'
 
 const PALETTES = {
   thermal: ['#0000ff', '#ff0000'],
@@ -156,11 +157,23 @@ export default function OceanScene() {
   const [showSatellite, setShowSatellite] = useState(false)
   const [showGlider, setShowGlider] = useState(true)
   const [showCoastalRisk, setShowCoastalRisk] = useState(true)
+  const [showVessels, setShowVessels] = useState(true)
+  const [showCalamities, setShowCalamities] = useState(true)
+  const [vectorSpeed, setVectorSpeed] = useState(1.0)
+  const vectorSpeedRef = useRef(1.0)
+  useEffect(() => { vectorSpeedRef.current = vectorSpeed }, [vectorSpeed])
+
   const [isCoastalRiskModalOpen, setIsCoastalRiskModalOpen] = useState(false)
+  const [isWorldMonitorOpen, setIsWorldMonitorOpen] = useState(false)
   const [selectedGliderWaypoint, setSelectedGliderWaypoint] = useState(null)
   const [selectedPort, setSelectedPort] = useState(null)
+  const [selectedVessel, setSelectedVessel] = useState(null)
+  const [selectedCalamity, setSelectedCalamity] = useState(null)
+
   const gliderGroupRef = useRef(null)
   const coastalGroupRef = useRef(null)
+  const vesselsGroupRef = useRef(null)
+  const calamitiesGroupRef = useRef(null)
   const gliderVesselRef = useRef(null)
   const gliderCurveRef = useRef(null)
   const [selectedInstrumentId, setSelectedInstrumentId] = useState(null)
@@ -310,6 +323,9 @@ export default function OceanScene() {
     if (aiData.depth !== null && aiData.depth !== undefined) {
       setActiveDepth(aiData.depth)
     }
+    if (aiData.vector_speed) {
+      setVectorSpeed(aiData.vector_speed)
+    }
     if (aiData.action === 'TRACK_GLIDER') {
       setShowGlider(true)
       flyToPoint(12.5, 87.2, 22)
@@ -317,6 +333,17 @@ export default function OceanScene() {
     if (aiData.action === 'SHOW_COASTAL_RISK') {
       setShowCoastalRisk(true)
       setIsCoastalRiskModalOpen(true)
+    }
+    if (aiData.action === 'SHOW_VESSELS') {
+      setShowVessels(true)
+      setIsWorldMonitorOpen(true)
+    }
+    if (aiData.action === 'SHOW_CALAMITIES') {
+      setShowCalamities(true)
+      setIsWorldMonitorOpen(true)
+    }
+    if (aiData.open_panel === 'world_monitor') {
+      setIsWorldMonitorOpen(true)
     }
   }, [flyTo, flyToPoint])
 
@@ -438,8 +465,35 @@ export default function OceanScene() {
 
       controls.update()
 
-      // Pulsate discrepancy beacon rings
-      const timeSec = Date.now() * 0.003
+      // Pulsate discrepancy beacon rings & calamities scaled by vectorSpeed
+      const vSpeed = vectorSpeedRef.current || 1.0
+      const timeSec = Date.now() * 0.003 * vSpeed
+
+      // Animate 3D Calamity Vortex & Seismic Rings
+      if (calamitiesGroupRef.current) {
+        calamitiesGroupRef.current.children.forEach(c => {
+          c.children.forEach(part => {
+            if (part.userData?.isCycloneVortex) {
+              part.rotation.z -= 0.025 * vSpeed
+            } else if (part.userData?.isSeismicRing) {
+              const phase = part.userData.phase || 0
+              const s = 1.0 + 0.3 * Math.sin(timeSec * 3 + phase)
+              part.scale.set(s, s, 1)
+            }
+          })
+        })
+      }
+
+      // Animate 3D AIS Vessel Halos
+      if (vesselsGroupRef.current) {
+        vesselsGroupRef.current.children.forEach(vMesh => {
+          const halo = vMesh.children.find(c => c.userData?.isVesselHalo)
+          if (halo) {
+            const s = 1.0 + 0.25 * Math.sin(timeSec * 2 + (vMesh.userData?.phase || 0))
+            halo.scale.set(s, s, 1)
+          }
+        })
+      }
       if (markersRef.current) {
         markersRef.current.children.forEach(mesh => {
           mesh.children.forEach(c => {
@@ -570,6 +624,32 @@ export default function OceanScene() {
         if (portObj) {
           setSelectedPort(portObj.object.userData.portData)
           setIsCoastalRiskModalOpen(true)
+          setSurfacePointInfo(null)
+          return
+        }
+      }
+
+      // Check vessel intersections
+      if (vesselsGroupRef.current) {
+        const vesselHits = raycasterRef.current.intersectObjects(vesselsGroupRef.current.children, true)
+        const vObj = vesselHits.find(h => h.object.userData?.isVessel || h.object.parent?.userData?.isVessel)
+        if (vObj) {
+          const vData = vObj.object.userData?.vessel || vObj.object.parent?.userData?.vessel
+          setSelectedVessel(vData)
+          setSelectedCalamity(null)
+          setSurfacePointInfo(null)
+          return
+        }
+      }
+
+      // Check calamity intersections
+      if (calamitiesGroupRef.current) {
+        const calHits = raycasterRef.current.intersectObjects(calamitiesGroupRef.current.children, true)
+        const cObj = calHits.find(h => h.object.userData?.isCalamity || h.object.parent?.userData?.isCalamity)
+        if (cObj) {
+          const cData = cObj.object.userData?.calamity || cObj.object.parent?.userData?.calamity
+          setSelectedCalamity(cData)
+          setSelectedVessel(null)
           setSurfacePointInfo(null)
           return
         }
@@ -1091,96 +1171,39 @@ export default function OceanScene() {
           profile.sort((a,b) => a.depth - b.depth)
           const DS = volumeGroupRef.current?.userData?.DEPTH_SCALE || 0.0002
           
-          const randomSeed = inst.id.toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-          const driftDirX = Math.sin(randomSeed)
-          const driftDirZ = Math.cos(randomSeed)
-          const maxDrift = 1.2
-          
-          const points = profile.map((p, i) => {
-             const depthRatio = Math.min(1.0, p.depth / (metadata?.depths ? Math.max(...metadata.depths) : 2000))
-             // Zig-zag pattern
-             const zz = (i % 2 === 0) ? 0.3 : -0.3
-             const currentDrift = maxDrift * depthRatio
-             // Dive along the local +Z axis (lookAt(0,0,0) makes -Z point to core, but wait, if it points to core, depth should be positive Z or negative Z?)
-             // Let's use -Z for depth (into the core)
-             return new THREE.Vector3(driftDirX * currentDrift + driftDirZ * zz, driftDirZ * currentDrift - driftDirX * zz, -(p.depth * DS))
-          })
-          
-          // Use tension=0 for sharp straight line segments
-          const path = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0)
-          
-          const tubularSegments = profile.length - 1
-          const radialSegments = 4
-          const geo = new THREE.TubeGeometry(path, tubularSegments, 0.04, radialSegments, false)
-
-          const colors = new Float32Array(geo.attributes.position.count * 3)
-          const mn = colorMin, mx = colorMax
-
-          // Determine vertex colors based on the value (temp or salinity)
-          for (let i = 0; i <= tubularSegments; i++) {
-             const p = profile[Math.min(i, profile.length - 1)]
-             const pVal = activeVar === 'so' ? p.salinity : p.temperature
-             let normalized = (pVal - mn) / (mx - mn || 1)
-             
-             if (logScale) {
-                const shift = mn <= 0 ? Math.abs(mn) + 1 : 0;
-                const shiftedVal = pVal + shift;
-                const shiftedMin = mn + shift;
-                const shiftedMax = mx + shift;
-                normalized = (Math.log(shiftedVal) - Math.log(shiftedMin)) / (Math.log(shiftedMax) - Math.log(shiftedMin) || 1);
-             }
-             
-             normalized = Math.max(0, Math.min(1, normalized))
-             
-             if (palette === 'thermal') tempC.setHSL(0.66 * (1.0 - normalized), 1.0, 0.5)
-             else tempC.lerpColors(c1, c2, normalized)
-             
-             // Apply to all radial vertices for this segment
-             for (let j = 0; j <= radialSegments; j++) {
-                const vIdx = i * (radialSegments + 1) + j
-                colors[vIdx * 3] = tempC.r
-                colors[vIdx * 3 + 1] = tempC.g
-                colors[vIdx * 3 + 2] = tempC.b
-             }
-          }
-          geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-
-          const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })
-          const mesh = new THREE.Mesh(geo, mat)
-          mesh.position.set(px, py, pz)
-          mesh.lookAt(0, 0, 0)
-          
-          // Glider 3D Model at the end of the path
-          const gliderGroup = new THREE.Group()
-          const bodyGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.6, 12)
-          bodyGeo.rotateZ(Math.PI / 2) // Lie flat
-          const gliderMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 })
-          const body = new THREE.Mesh(bodyGeo, gliderMat)
-          
-          const noseGeo = new THREE.SphereGeometry(0.06, 12, 12)
-          const nose = new THREE.Mesh(noseGeo, gliderMat)
-          nose.position.x = 0.3
-          
-          const tailGeo = new THREE.SphereGeometry(0.06, 12, 12)
-          const tail = new THREE.Mesh(tailGeo, gliderMat)
-          tail.position.x = -0.3
-          
-          gliderGroup.add(body, nose, tail)
-          
-          const endPoint = points[points.length - 1]
-          gliderGroup.position.copy(endPoint)
-          // Point glider in the general direction of drift
-          gliderGroup.lookAt(new THREE.Vector3(endPoint.x + driftDirX, endPoint.y, endPoint.z + driftDirZ))
-          mesh.add(gliderGroup)
-
-          // Enhanced 3D Discrepancy Halo and Beacon Pin on the Globe Surface
+          // ── Clean Vertical CTD Profiling Depth Needle (Authentic Argo In-Situ Cast) ──
           const biasVal = Math.abs(inst.bias ?? 0)
           const isHighAlert = biasVal >= 1.5
           const isModerate = biasVal >= 0.5 && biasVal < 1.5
           const haloColor = isHighAlert ? 0xef4444 : (isModerate ? 0xf59e0b : 0x10b981)
 
-          // 1. Sea-Surface Glowing Radar Ring
-          const haloGeo = new THREE.RingGeometry(0.25, 0.48, 32)
+          const maxProfileDepth = profile[profile.length - 1]?.depth || 2000
+          const soundingGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0.05),
+            new THREE.Vector3(0, 0, -(maxProfileDepth * DS))
+          ])
+          const soundingMat = new THREE.LineBasicMaterial({
+            color: haloColor,
+            transparent: true,
+            opacity: 0.65,
+            linewidth: 1
+          })
+          const soundingLine = new THREE.Line(soundingGeo, soundingMat)
+
+          // Subsurface CTD Sensor Package at cast bottom
+          const sensorGeo = new THREE.SphereGeometry(0.08, 8, 8)
+          const sensorMat = new THREE.MeshBasicMaterial({ color: haloColor })
+          const sensorMesh = new THREE.Mesh(sensorGeo, sensorMat)
+          sensorMesh.position.set(0, 0, -(maxProfileDepth * DS))
+
+          const mesh = new THREE.Group()
+          mesh.position.set(px, py, pz)
+          mesh.lookAt(0, 0, 0)
+          mesh.add(soundingLine)
+          mesh.add(sensorMesh)
+
+          // Sea-Surface Glowing Radar Ring
+          const haloGeo = new THREE.RingGeometry(0.22, 0.44, 32)
           const haloMat = new THREE.MeshBasicMaterial({
             color: haloColor,
             side: THREE.DoubleSide,
@@ -1197,8 +1220,8 @@ export default function OceanScene() {
           haloMesh.visible = showDiscrepancy
           mesh.add(haloMesh)
 
-          // 2. Center Beacon Pin
-          const pinGeo = new THREE.SphereGeometry(0.14, 16, 16)
+          // Center Surface Buoy Beacon Pin
+          const pinGeo = new THREE.SphereGeometry(0.12, 16, 16)
           const pinMat = new THREE.MeshBasicMaterial({ color: haloColor })
           const pinMesh = new THREE.Mesh(pinGeo, pinMat)
           pinMesh.position.set(0, 0, 0.08)
@@ -1425,6 +1448,191 @@ export default function OceanScene() {
       .catch(err => console.error('Error rendering coastal risk ports:', err))
   }, [showCoastalRisk])
 
+  // ── Render 3D AIS Maritime Vessels Layer ──
+  useEffect(() => {
+    if (!sceneRef.current) return
+    const scene = sceneRef.current
+
+    if (vesselsGroupRef.current) {
+      scene.remove(vesselsGroupRef.current)
+      vesselsGroupRef.current.traverse(obj => {
+        obj.geometry?.dispose()
+        obj.material?.dispose()
+      })
+      vesselsGroupRef.current = null
+    }
+
+    if (!showVessels) return
+
+    fetch('/api/vessels')
+      .then(r => r.json())
+      .then(data => {
+        if (!data || !data.vessels) return
+
+        const group = new THREE.Group()
+        group.userData = { isVesselsGroup: true }
+        const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
+
+        data.vessels.forEach((v, vIdx) => {
+          const phi = (90 - v.lat) * Math.PI / 180
+          const theta = (v.lon + 180) * Math.PI / 180
+          const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.16, phi, theta)
+
+          let shipColor = 0x38bdf8 // Default cyan for research/patrol
+          if (v.type.toLowerCase().includes('tanker') || v.type.toLowerCase().includes('lng')) shipColor = 0xf97316 // orange/amber
+          else if (v.type.toLowerCase().includes('container') || v.type.toLowerCase().includes('bulk')) shipColor = 0x10b981 // teal/green
+          else if (v.type.toLowerCase().includes('trawler')) shipColor = 0xeab308 // yellow
+
+          const vMesh = new THREE.Group()
+          vMesh.position.copy(pos)
+          vMesh.lookAt(0, 0, 0)
+
+          // 3D Ship Hull (Arrow-shaped wedge pointing in direction of course)
+          const hullGeo = new THREE.ConeGeometry(0.12, 0.45, 4)
+          hullGeo.rotateZ(Math.PI / 2)
+          const courseRad = (v.course_deg || 0) * Math.PI / 180
+          hullGeo.rotateY(courseRad)
+
+          const hullMat = new THREE.MeshBasicMaterial({ color: shipColor })
+          const hull = new THREE.Mesh(hullGeo, hullMat)
+          hull.position.set(0, 0, 0.08)
+          vMesh.add(hull)
+
+          // Surface Pulsing Radar Ring
+          const ringGeo = new THREE.RingGeometry(0.18, 0.32, 16)
+          const ringMat = new THREE.MeshBasicMaterial({ color: shipColor, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+          const ringMesh = new THREE.Mesh(ringGeo, ringMat)
+          ringMesh.position.set(0, 0, 0.03)
+          ringMesh.userData = { isVesselHalo: true }
+          vMesh.add(ringMesh)
+
+          vMesh.userData = { isVessel: true, vessel: v, phase: vIdx * 0.7 }
+          group.add(vMesh)
+        })
+
+        scene.add(group)
+        vesselsGroupRef.current = group
+      })
+      .catch(err => console.error('Error rendering vessels:', err))
+  }, [showVessels])
+
+  // ── Render 3D Calamity & Cyclone Radar Layer ──
+  useEffect(() => {
+    if (!sceneRef.current) return
+    const scene = sceneRef.current
+
+    if (calamitiesGroupRef.current) {
+      scene.remove(calamitiesGroupRef.current)
+      calamitiesGroupRef.current.traverse(obj => {
+        obj.geometry?.dispose()
+        obj.material?.dispose()
+      })
+      calamitiesGroupRef.current = null
+    }
+
+    if (!showCalamities) return
+
+    fetch('/api/calamities')
+      .then(r => r.json())
+      .then(res => {
+        if (!res || !res.data) return
+        const data = res.data
+        const group = new THREE.Group()
+        group.userData = { isCalamitiesGroup: true }
+        const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
+
+        // 1. Cyclones (Rotating Spiral Vortex)
+        if (data.active_cyclones) {
+          data.active_cyclones.forEach((cyc) => {
+            const phi = (90 - cyc.center_lat) * Math.PI / 180
+            const theta = (cyc.center_lon + 180) * Math.PI / 180
+            const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.18, phi, theta)
+
+            const cycGroup = new THREE.Group()
+            cycGroup.position.copy(pos)
+            cycGroup.lookAt(0, 0, 0)
+
+            // Outer Storm Surge Warning Ring (Crimson)
+            const outerRingGeo = new THREE.RingGeometry(0.7, 1.05, 32)
+            const outerRingMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
+            const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat)
+            outerRing.userData = { isCycloneVortex: true }
+            cycGroup.add(outerRing)
+
+            // Inner Core Spiral Ring (Amber/Orange)
+            const innerRingGeo = new THREE.RingGeometry(0.28, 0.52, 24)
+            const innerRingMat = new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+            const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat)
+            innerRing.userData = { isCycloneVortex: true }
+            cycGroup.add(innerRing)
+
+            // Center Eye Sphere
+            const eyeGeo = new THREE.SphereGeometry(0.18, 16, 16)
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+            const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat)
+            eyeMesh.position.set(0, 0, 0.1)
+            cycGroup.add(eyeMesh)
+
+            cycGroup.userData = { isCalamity: true, calamityType: 'cyclone', calamity: cyc }
+            group.add(cycGroup)
+          })
+        }
+
+        // 2. Submarine Seismic & Tsunami Events
+        if (data.seismic_tsunami_events) {
+          data.seismic_tsunami_events.forEach((eq, eqIdx) => {
+            const phi = (90 - eq.center_lat) * Math.PI / 180
+            const theta = (eq.center_lon + 180) * Math.PI / 180
+            const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.16, phi, theta)
+
+            const eqGroup = new THREE.Group()
+            eqGroup.position.copy(pos)
+            eqGroup.lookAt(0, 0, 0)
+
+            const ringGeo = new THREE.RingGeometry(0.35, 0.55, 24)
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x14b8a6, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat)
+            ringMesh.userData = { isSeismicRing: true, phase: eqIdx * 1.2 }
+            eqGroup.add(ringMesh)
+
+            const epicenterGeo = new THREE.SphereGeometry(0.14, 14, 14)
+            const epicenterMat = new THREE.MeshBasicMaterial({ color: 0x2dd4bf })
+            const epicenter = new THREE.Mesh(epicenterGeo, epicenterMat)
+            epicenter.position.set(0, 0, 0.08)
+            eqGroup.add(epicenter)
+
+            eqGroup.userData = { isCalamity: true, calamityType: 'earthquake', calamity: eq }
+            group.add(eqGroup)
+          })
+        }
+
+        // 3. Marine Heatwaves
+        if (data.marine_heatwaves) {
+          data.marine_heatwaves.forEach((mhw) => {
+            const phi = (90 - mhw.center_lat) * Math.PI / 180
+            const theta = (mhw.center_lon + 180) * Math.PI / 180
+            const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.14, phi, theta)
+
+            const mhwGroup = new THREE.Group()
+            mhwGroup.position.copy(pos)
+            mhwGroup.lookAt(0, 0, 0)
+
+            const diskGeo = new THREE.CircleGeometry(0.6, 24)
+            const diskMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+            const disk = new THREE.Mesh(diskGeo, diskMat)
+            mhwGroup.add(disk)
+
+            mhwGroup.userData = { isCalamity: true, calamityType: 'heatwave', calamity: mhw }
+            group.add(mhwGroup)
+          })
+        }
+
+        scene.add(group)
+        calamitiesGroupRef.current = group
+      })
+      .catch(err => console.error('Error rendering calamities:', err))
+  }, [showCalamities])
+
   // Satellite Overlay (NASA GIBS) has been removed because the global ESRI map serves this purpose natively.
 
   return (
@@ -1611,6 +1819,7 @@ export default function OceanScene() {
           logScale={logScale} setLogScale={setLogScale}
           opacity={opacity} setOpacity={setOpacity}
           vertExag={vertExag} setVertExag={setVertExag}
+          vectorSpeed={vectorSpeed} setVectorSpeed={setVectorSpeed}
           showDiscrepancy={showDiscrepancy} setShowDiscrepancy={setShowDiscrepancy}
           onlyDivergent={onlyDivergent} setOnlyDivergent={setOnlyDivergent}
           showSatellite={showSatellite} setShowSatellite={setShowSatellite}
@@ -1618,7 +1827,10 @@ export default function OceanScene() {
           showIso={showIso} setShowIso={setShowIso}
           showGlider={showGlider} setShowGlider={setShowGlider}
           showCoastalRisk={showCoastalRisk} setShowCoastalRisk={setShowCoastalRisk}
+          showVessels={showVessels} setShowVessels={setShowVessels}
+          showCalamities={showCalamities} setShowCalamities={setShowCalamities}
           onOpenCoastalRisk={() => setIsCoastalRiskModalOpen(true)}
+          onOpenWorldMonitor={() => setIsWorldMonitorOpen(true)}
           onOpenUpload={() => setIsUploadModalOpen(true)}
         />
       )}
@@ -1828,12 +2040,105 @@ export default function OceanScene() {
         }}
       />
 
+      {/* World Monitor OSINT Dashboard Modal */}
+      <WorldMonitorPanel
+        isOpen={isWorldMonitorOpen}
+        onClose={() => setIsWorldMonitorOpen(false)}
+        onFocusCoordinates={(lat, lon, dist) => flyToPoint(lat, lon, dist)}
+        onSelectVessel={(v) => setSelectedVessel(v)}
+      />
+
+      {/* Tactical Vessel HUD Card */}
+      {selectedVessel && (
+        <div style={{
+          position: 'absolute', top: 100, right: 24, zIndex: 40, width: 340,
+          background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(6, 182, 212, 0.5)', borderRadius: 14, padding: 16,
+          color: '#e2e8f0', boxShadow: '0 12px 40px rgba(0,0,0,0.8), 0 0 25px rgba(6,182,212,0.2)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '1.4rem' }}>🚢</span>
+              <div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#38bdf8' }}>{selectedVessel.name}</div>
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{selectedVessel.type} • {selectedVessel.flag}</div>
+              </div>
+            </div>
+            <button onClick={() => setSelectedVessel(null)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: '0.75rem', marginBottom: 10 }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#94a3b8' }}>SPEED</div>
+              <strong style={{ color: '#2dd4bf', fontSize: '0.9rem' }}>{selectedVessel.speed_knots} kts</strong>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#94a3b8' }}>COURSE</div>
+              <strong style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>{selectedVessel.course_deg}°</strong>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#94a3b8' }}>DRAFT</div>
+              <strong style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>{selectedVessel.draft_m} m</strong>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#94a3b8' }}>MMSI</div>
+              <strong style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>{selectedVessel.mmsi}</strong>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', background: 'rgba(0,0,0,0.35)', padding: '8px 10px', borderRadius: 8, lineHeight: 1.4 }}>
+            🎯 <strong>Destination:</strong> {selectedVessel.destination}<br />
+            📍 <strong>Region:</strong> {selectedVessel.region}<br />
+            ⚙️ <strong>Status:</strong> {selectedVessel.status}
+          </div>
+        </div>
+      )}
+
+      {/* Tactical Calamity Alert HUD Card */}
+      {selectedCalamity && (
+        <div style={{
+          position: 'absolute', top: 100, right: 24, zIndex: 40, width: 350,
+          background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(239, 68, 68, 0.6)', borderRadius: 14, padding: 16,
+          color: '#e2e8f0', boxShadow: '0 12px 40px rgba(0,0,0,0.8), 0 0 30px rgba(239,68,68,0.25)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '1.4rem' }}>{selectedCalamity.name ? '🌪️' : (selectedCalamity.magnitude_mw ? '🌊' : '🔥')}</span>
+              <div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f87171' }}>
+                  {selectedCalamity.name || selectedCalamity.location || selectedCalamity.region}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#fca5a5' }}>
+                  {selectedCalamity.category || selectedCalamity.itewc_status || 'Environmental Threat Alert'}
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setSelectedCalamity(null)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          </div>
+          {selectedCalamity.max_sustained_winds_knots && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: '0.75rem', marginBottom: 10 }}>
+              <div style={{ background: 'rgba(239,68,68,0.1)', padding: '6px 8px', borderRadius: 6 }}>
+                <div style={{ fontSize: '0.62rem', color: '#fca5a5' }}>MAX WIND</div>
+                <strong style={{ color: '#ef4444', fontSize: '0.9rem' }}>{selectedCalamity.max_sustained_winds_knots} kts</strong>
+              </div>
+              <div style={{ background: 'rgba(239,68,68,0.1)', padding: '6px 8px', borderRadius: 6 }}>
+                <div style={{ fontSize: '0.62rem', color: '#fca5a5' }}>SURGE</div>
+                <strong style={{ color: '#38bdf8', fontSize: '0.9rem' }}>+{selectedCalamity.storm_surge_forecast_m} m</strong>
+              </div>
+            </div>
+          )}
+          <div style={{ fontSize: '0.72rem', color: '#e2e8f0', background: 'rgba(0,0,0,0.4)', padding: '8px 10px', borderRadius: 8, lineHeight: 1.4 }}>
+            {selectedCalamity.advisory || selectedCalamity.impact || `Status: ${selectedCalamity.itewc_status}`}
+          </div>
+        </div>
+      )}
+
       {/* OceanIQ Intelligent AI Conversational Assistant */}
       <OceanIQAssistant
         onExecuteAIAction={handleAIAction}
         onOpenCoastalRisk={() => setIsCoastalRiskModalOpen(true)}
         onOpenGlider={() => setShowGlider(true)}
         onOpenDiscrepancy={() => setShowDiscrepancy(true)}
+        onOpenWorldMonitor={() => setIsWorldMonitorOpen(true)}
       />
     </div>
   )
