@@ -699,6 +699,16 @@ def get_webcams():
         "webcams": COASTAL_WEBCAMS_DEF
     }
 
+@app.get("/api/ai/status")
+def get_ai_status():
+    """Returns whether Gemini API is configured on the backend server."""
+    backend_key = os.environ.get("GEMINI_API_KEY")
+    return {
+        "status": "online",
+        "gemini_configured": bool(backend_key),
+        "model": "gemini-3.6-flash" if backend_key else "offline_expert"
+    }
+
 class AIQueryRequest(BaseModel):
     query: str
     api_key: Optional[str] = None

@@ -10,8 +10,24 @@ export default function OceanIQAssistant({
   const [isOpen, setIsOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '')
+  const [backendGeminiActive, setBackendGeminiActive] = useState(false)
   const [savedKeyMsg, setSavedKeyMsg] = useState('')
   const [query, setQuery] = useState('')
+
+  // Check if backend has Gemini API key configured
+  useEffect(() => {
+    fetch('/api/ai/status')
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.gemini_configured) {
+          setBackendGeminiActive(true)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const isGeminiLive = backendGeminiActive || Boolean(apiKey.trim())
+
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -123,7 +139,7 @@ export default function OceanIQAssistant({
             padding: '2px 7px',
             borderRadius: 10
           }}>
-            {apiKey ? 'Gemini 2.5' : 'AI / OSINT'}
+            {isGeminiLive ? 'Gemini 3.6' : 'AI / OSINT'}
           </span>
         </button>
       )}
@@ -164,11 +180,11 @@ export default function OceanIQAssistant({
                     fontSize: '0.65rem',
                     padding: '1px 6px',
                     borderRadius: 8,
-                    background: apiKey ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.3)',
-                    color: apiKey ? '#34d399' : '#a5b4fc',
+                    background: isGeminiLive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.3)',
+                    color: isGeminiLive ? '#34d399' : '#a5b4fc',
                     border: '1px solid rgba(255,255,255,0.1)'
                   }}>
-                    {apiKey ? 'Gemini API' : 'Expert Brain'}
+                    {isGeminiLive ? '🟢 Gemini 3.6 Flash' : 'Expert Brain'}
                   </span>
                 </div>
                 <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
@@ -217,15 +233,37 @@ export default function OceanIQAssistant({
               fontSize: '0.78rem'
             }}>
               <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>
-                Google Gemini API Configuration (Optional)
+                Google Gemini API Configuration
               </div>
-              <p style={{ color: '#94a3b8', marginBottom: 8, fontSize: '0.72rem' }}>
-                Enter your Gemini API key to enable live Gemini 2.5 Flash conversational reasoning. If left empty, OceanIQ operates in built-in offline expert mode.
-              </p>
+              {backendGeminiActive ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: '#34d399',
+                  marginBottom: 8
+                }}>
+                  <span>🟢</span>
+                  <div>
+                    <strong>Gemini 3.6 Flash Active</strong>
+                    <div style={{ color: '#a7f3d0', fontSize: '0.68rem' }}>
+                      Key securely loaded on server (.env). You don't need to re-enter it below!
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: '#94a3b8', marginBottom: 8, fontSize: '0.72rem' }}>
+                  Enter your Gemini API key to enable live Gemini 3.6 Flash reasoning. If left empty, OceanIQ operates in built-in offline expert mode.
+                </p>
+              )}
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
                   type="password"
-                  placeholder="AIzaSy..."
+                  placeholder={backendGeminiActive ? 'Key active via backend (.env)' : 'AIzaSy...'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   style={{
@@ -345,7 +383,7 @@ export default function OceanIQAssistant({
                 alignItems: 'center',
                 gap: 8
               }}>
-                <span className="animate-spin">⟳</span> Reasoning ocean physics & dispatching 3D twin actions...
+                <span className="animate-spin">⟳</span> {isGeminiLive ? 'Thinking with Gemini 3.6 Flash & dispatching 3D actions...' : 'Reasoning ocean physics & dispatching 3D twin actions...'}
               </div>
             )}
           </div>
