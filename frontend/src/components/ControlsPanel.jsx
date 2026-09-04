@@ -39,6 +39,10 @@ export default function ControlsPanel({
   showVessels, setShowVessels,
   showCalamities, setShowCalamities,
   showSatellites, setShowSatellites,
+  showGeoNames, setShowGeoNames,
+  showSeaLabels, setShowSeaLabels,
+  showInteractiveBadges, setShowInteractiveBadges,
+  onOpenGoogleMaps,
   onOpenCoastalRisk,
   onOpenWorldMonitor,
   onOpenUpload,
@@ -180,7 +184,7 @@ export default function ControlsPanel({
           background: 'rgba(30, 41, 59, 0.6)', padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)'
         }}>
           <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#e2e8f0' }}>In-Situ Argo Floats (289)</div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#e2e8f0' }}>In-Situ Argo Floats (659 Global)</div>
             <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Vertical CTD Soundings</div>
           </div>
           <ToggleSwitch checked={showDiscrepancy} onChange={setShowDiscrepancy} />
@@ -254,6 +258,50 @@ export default function ControlsPanel({
               Open Port Risk Dashboard
             </button>
           )}
+        </div>
+      </div>
+
+      {/* 🗺️ Geographic & Cartography Details */}
+      <div style={{
+        background: 'rgba(30, 41, 59, 0.65)', padding: '10px 12px',
+        borderRadius: 10, border: '1px solid rgba(56, 189, 248, 0.25)',
+        display: 'flex', flexDirection: 'column', gap: 8
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>🗺️</span> Map & Placemarks
+          </span>
+          <button
+            onClick={onOpenGoogleMaps}
+            style={{
+              background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(6, 182, 212, 0.2))',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              borderRadius: 6,
+              color: '#38bdf8',
+              padding: '3px 8px',
+              fontSize: '0.66rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            ⚙️ Google Maps
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.74rem', color: '#cbd5e1' }}>Continents & Countries</span>
+          <ToggleSwitch checked={showGeoNames} onChange={setShowGeoNames} />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.74rem', color: '#cbd5e1' }}>Oceans & Sea Watermarks</span>
+          <ToggleSwitch checked={showSeaLabels} onChange={setShowSeaLabels} />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.74rem', color: '#cbd5e1' }}>3D Floating Badges</span>
+          <ToggleSwitch checked={showInteractiveBadges} onChange={setShowInteractiveBadges} />
         </div>
       </div>
 

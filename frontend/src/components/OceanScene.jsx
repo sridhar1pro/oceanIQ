@@ -8,6 +8,14 @@ import UploadModal from './UploadModal.jsx'
 import CoastalRiskPanel from './CoastalRiskPanel.jsx'
 import OceanIQAssistant from './OceanIQAssistant.jsx'
 import WorldMonitorPanel from './WorldMonitorPanel.jsx'
+import GoogleMapsModal from './GoogleMapsModal.jsx'
+import {
+  latLonToVector3,
+  vector3ToLatLon,
+  createCartographyTexture,
+  GEOGRAPHIC_PLACES,
+  GOOGLE_MAPS_CONFIG
+} from '../utils/geoCartography.js'
 
 const PALETTES = {
   thermal: ['#03071e', '#e11d48'],
@@ -246,39 +254,56 @@ export default function OceanScene() {
   const hoveredInstrumentIdRef = useRef(null)
   const earthMeshRef = useRef(null)
 
-  // Camera Fly-To Preset Logic
+  const [showGeoNames, setShowGeoNames] = useState(true)
+  const [showSeaLabels, setShowSeaLabels] = useState(true)
+  const [showInteractiveBadges, setShowInteractiveBadges] = useState(true)
+  const [isGoogleMapsModalOpen, setIsGoogleMapsModalOpen] = useState(false)
+  const showInteractiveBadgesRef = useRef(true)
+  useEffect(() => { showInteractiveBadgesRef.current = showInteractiveBadges }, [showInteractiveBadges])
+  const showGeoNamesRef = useRef(true)
+  useEffect(() => { showGeoNamesRef.current = showGeoNames }, [showGeoNames])
+  const showSeaLabelsRef = useRef(true)
+  useEffect(() => { showSeaLabelsRef.current = showSeaLabels }, [showSeaLabels])
+  const cartoOverlayRef = useRef(null)
+  const geoBadgesContainerRef = useRef(null)
+  const geoPlacesDomRef = useRef([])
+
+  // Toggle Cartographic overlay visibility
+  useEffect(() => {
+    if (cartoOverlayRef.current) {
+      cartoOverlayRef.current.visible = showGeoNames || showSeaLabels
+    }
+  }, [showGeoNames, showSeaLabels])
+
+  // Camera Fly-To Preset Logic with exact spherical mapping
   const flyToPoint = useCallback((lat, lon, dist = 24) => {
-    const phi = (90 - lat) * Math.PI / 180
-    const theta = (lon + 180) * Math.PI / 180
-    const camTarget = new THREE.Vector3().setFromSphericalCoords(dist, phi, theta)
+    const camTarget = latLonToVector3(lat, lon, dist)
     targetCamPosRef.current = camTarget
   }, [])
 
   const flyTo = useCallback((regionKey) => {
     setActiveRegion(regionKey)
-    let targetLat = 12, targetLon = 78, camDist = 34
+    let targetLat = 6.0, targetLon = 78.0, camDist = 32
     if (regionKey === 'indian_ocean') {
-      targetLat = 12
-      targetLon = 78
-      camDist = 34
+      targetLat = 6.0
+      targetLon = 78.0
+      camDist = 32
     } else if (regionKey === 'arabian_sea') {
-      targetLat = 17
-      targetLon = 66
-      camDist = 28
+      targetLat = 16.5
+      targetLon = 65.5
+      camDist = 26
     } else if (regionKey === 'bay_of_bengal') {
-      targetLat = 15
-      targetLon = 87
-      camDist = 28
+      targetLat = 14.5
+      targetLon = 88.5
+      camDist = 26
     } else {
       // Global overview
-      targetLat = 0
-      targetLon = 30
-      camDist = 44
+      targetLat = 10.0
+      targetLon = 60.0
+      camDist = 48
     }
 
-    const phi = (90 - targetLat) * Math.PI / 180
-    const theta = (targetLon + 180) * Math.PI / 180
-    const destPos = new THREE.Vector3().setFromSphericalCoords(camDist, phi, theta)
+    const destPos = latLonToVector3(targetLat, targetLon, camDist)
     targetCamPosRef.current = destPos
   }, [])
 
@@ -468,6 +493,26 @@ export default function OceanScene() {
     const earthMesh = new THREE.Mesh(earthGeo, earthMat)
     earthMeshRef.current = earthMesh
     scene.add(earthMesh)
+
+    // High-Resolution Cartographic Overlay (Continents, Countries, Oceans, Coastlines, Graticules)
+    try {
+      const cartoTex = createCartographyTexture()
+      cartoTex.colorSpace = THREE.SRGBColorSpace
+      const cartoGeo = new THREE.SphereGeometry(R + 0.025, 64, 64)
+      const cartoMat = new THREE.MeshBasicMaterial({
+        map: cartoTex,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false
+      })
+      const cartoMesh = new THREE.Mesh(cartoGeo, cartoMat)
+      cartoMesh.userData = { isCartoOverlay: true }
+      cartoMesh.visible = showGeoNamesRef.current || showSeaLabelsRef.current
+      cartoOverlayRef.current = cartoMesh
+      scene.add(cartoMesh)
+    } catch (e) {
+      console.warn('Cartography texture generation fallback:', e)
+    }
 
     // Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
@@ -666,6 +711,40 @@ export default function OceanScene() {
           }
         })
       }
+
+      // Project 3D Geographic Badges (Continents, Seas, Countries)
+      if (geoBadgesContainerRef.current && cameraRef.current && showInteractiveBadgesRef.current) {
+        const camPos = cameraRef.current.position
+        const camNorm = camPos.clone().normalize()
+        const w = container.clientWidth
+        const h = container.clientHeight
+
+        geoPlacesDomRef.current.forEach(item => {
+          const { place, domElement, vec3 } = item
+          // Horizon-occlusion culling: only show labels on hemisphere facing camera
+          const dot = vec3.clone().normalize().dot(camNorm)
+          if (dot <= 0.22) {
+            if (domElement.style.display !== 'none') domElement.style.display = 'none'
+            return
+          }
+
+          tempV.copy(vec3).project(camera)
+          if (tempV.z > 1) {
+            if (domElement.style.display !== 'none') domElement.style.display = 'none'
+            return
+          }
+
+          const sx = (tempV.x * 0.5 + 0.5) * w
+          const sy = (tempV.y * -0.5 + 0.5) * h
+
+          if (domElement.style.display !== 'flex') domElement.style.display = 'flex'
+          domElement.style.transform = `translate(-50%, -50%) translate(${sx}px, ${sy}px)`
+        })
+      } else if (geoPlacesDomRef.current.length > 0 && !showInteractiveBadgesRef.current) {
+        geoPlacesDomRef.current.forEach(item => {
+          if (item.domElement.style.display !== 'none') item.domElement.style.display = 'none'
+        })
+      }
       
       renderer.render(scene, camera)
     }
@@ -804,11 +883,7 @@ export default function OceanScene() {
 
       if (hitSurfacePoint) {
          const p = hitSurfacePoint
-         const normP = p.clone().normalize()
-         const clickedLat = Math.asin(normP.y) * 180 / Math.PI
-         let theta = Math.atan2(normP.x, normP.z)
-         if (theta < 0) theta += 2 * Math.PI
-         const clickedLon = (theta * 180 / Math.PI) - 180
+         const { lat: clickedLat, lon: clickedLon } = vector3ToLatLon(p)
          
          // Measure Mode Logic
          if (measureModeRef.current) {
@@ -1178,9 +1253,7 @@ export default function OceanScene() {
       const sliceR = R_BASE - (activeDepth * DS) + 0.06
       
       const getSpherical = (lon, lat) => {
-        const phi = (90 - lat) * Math.PI / 180
-        const theta = (lon + 180) * Math.PI / 180
-        return new THREE.Vector3().setFromSphericalCoords(sliceR, phi, theta)
+        return latLonToVector3(lat, lon, sliceR)
       }
       
       const pts = [getSpherical(p1[0], p1[1]), getSpherical(p2[0], p2[1])]
@@ -1234,9 +1307,7 @@ export default function OceanScene() {
       const DS = group.userData.DEPTH_SCALE || 0.0002
       const sliceR = R_BASE - (activeDepth * DS) + 0.06 // Slightly above slice
       
-      const phi = (90 - d.lat) * Math.PI / 180
-      const theta = (d.lon + 180) * Math.PI / 180
-      const pvec = new THREE.Vector3().setFromSphericalCoords(sliceR, phi, theta)
+      const pvec = latLonToVector3(d.lat, d.lon, sliceR)
       const px = pvec.x
       const py = pvec.y
       const pz = pvec.z
@@ -1317,9 +1388,7 @@ export default function OceanScene() {
           if (!profile || profile.length < 2) return
 
           const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
-          const phi = (90 - inst.lat) * Math.PI / 180
-          const theta = (inst.lon + 180) * Math.PI / 180
-          const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE, phi, theta)
+          const pos = latLonToVector3(inst.lat, inst.lon, R_BASE)
           
           const px = pos.x
           const py = pos.y
@@ -1473,16 +1542,13 @@ export default function OceanScene() {
         const waypointsData = data.waypoints
 
         waypointsData.forEach((wp) => {
-          const phi = (90 - wp.lat) * Math.PI / 180
-          const theta = (wp.lon + 180) * Math.PI / 180
-
           // Surface position
-          const surfPos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.14, phi, theta)
+          const surfPos = latLonToVector3(wp.lat, wp.lon, R_BASE + 0.14)
           pathPoints.push(surfPos)
 
           // Dive position (Sawtooth bottom)
           const diveDepth = wp.dive_max_depth || 250
-          const divePos = new THREE.Vector3().setFromSphericalCoords(R_BASE - diveDepth * DS, phi, theta)
+          const divePos = latLonToVector3(wp.lat, wp.lon, R_BASE - diveDepth * DS)
           pathPoints.push(divePos)
 
           // Glowing surface beacon
@@ -1563,9 +1629,7 @@ export default function OceanScene() {
         const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
 
         data.ports.forEach((port, pIdx) => {
-          const phi = (90 - port.lat) * Math.PI / 180
-          const theta = (port.lon + 180) * Math.PI / 180
-          const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.15, phi, theta)
+          const pos = latLonToVector3(port.lat, port.lon, R_BASE + 0.15)
 
           let colorHex = 0x10b981
           if (port.risk_level === 'HIGH') colorHex = 0xef4444
@@ -1631,9 +1695,7 @@ export default function OceanScene() {
         const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
 
         data.vessels.forEach((v, vIdx) => {
-          const phi = (90 - v.lat) * Math.PI / 180
-          const theta = (v.lon + 180) * Math.PI / 180
-          const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.16, phi, theta)
+          const pos = latLonToVector3(v.lat, v.lon, R_BASE + 0.16)
 
           let shipColor = 0x38bdf8 // Default cyan for research/patrol
           if (v.type.toLowerCase().includes('tanker') || v.type.toLowerCase().includes('lng')) shipColor = 0xf97316 // orange/amber
@@ -1701,9 +1763,7 @@ export default function OceanScene() {
         // 1. Cyclones (Rotating Spiral Vortex)
         if (data.active_cyclones) {
           data.active_cyclones.forEach((cyc) => {
-            const phi = (90 - cyc.center_lat) * Math.PI / 180
-            const theta = (cyc.center_lon + 180) * Math.PI / 180
-            const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.18, phi, theta)
+            const pos = latLonToVector3(cyc.center_lat, cyc.center_lon, R_BASE + 0.18)
 
             const cycGroup = new THREE.Group()
             cycGroup.position.copy(pos)
@@ -1738,9 +1798,7 @@ export default function OceanScene() {
         // 2. Submarine Seismic & Tsunami Events
         if (data.seismic_tsunami_events) {
           data.seismic_tsunami_events.forEach((eq, eqIdx) => {
-            const phi = (90 - eq.center_lat) * Math.PI / 180
-            const theta = (eq.center_lon + 180) * Math.PI / 180
-            const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.16, phi, theta)
+            const pos = latLonToVector3(eq.center_lat, eq.center_lon, R_BASE + 0.16)
 
             const eqGroup = new THREE.Group()
             eqGroup.position.copy(pos)
@@ -1766,9 +1824,7 @@ export default function OceanScene() {
         // 3. Marine Heatwaves
         if (data.marine_heatwaves) {
           data.marine_heatwaves.forEach((mhw) => {
-            const phi = (90 - mhw.center_lat) * Math.PI / 180
-            const theta = (mhw.center_lon + 180) * Math.PI / 180
-            const pos = new THREE.Vector3().setFromSphericalCoords(R_BASE + 0.14, phi, theta)
+            const pos = latLonToVector3(mhw.center_lat, mhw.center_lon, R_BASE + 0.14)
 
             const mhwGroup = new THREE.Group()
             mhwGroup.position.copy(pos)
@@ -1926,11 +1982,88 @@ export default function OceanScene() {
       .catch(err => console.error('Error rendering satellites:', err))
   }, [showSatellites])
 
-  // Satellite Overlay (NASA GIBS) has been removed because the global ESRI map serves this purpose natively.
+  // ── Mount 3D Interactive Geographic Placemark Badges ──
+  useEffect(() => {
+    if (!geoBadgesContainerRef.current) return
+    const container = geoBadgesContainerRef.current
+    container.innerHTML = ''
+    geoPlacesDomRef.current = []
+
+    const R_GLOBE = 20
+
+    GEOGRAPHIC_PLACES.forEach(place => {
+      const vec3 = latLonToVector3(place.lat, place.lon, R_GLOBE + 0.15)
+      
+      const badge = document.createElement('button')
+      badge.className = 'geo-placemark-badge'
+      badge.style.position = 'absolute'
+      badge.style.top = '0'
+      badge.style.left = '0'
+      badge.style.pointerEvents = 'auto'
+      badge.style.cursor = 'pointer'
+      badge.style.display = 'none'
+      badge.style.alignItems = 'center'
+      badge.style.gap = '4px'
+      badge.style.padding = place.type === 'continent' ? '4px 10px' : (place.type === 'ocean' ? '5px 12px' : '3px 8px')
+      badge.style.borderRadius = '14px'
+      badge.style.fontSize = place.type === 'continent' ? '0.72rem' : (place.type === 'ocean' ? '0.75rem' : '0.68rem')
+      badge.style.fontWeight = place.type === 'continent' ? '800' : '600'
+      badge.style.letterSpacing = place.type === 'continent' ? '0.08em' : '0.02em'
+      badge.style.whiteSpace = 'nowrap'
+      badge.style.userSelect = 'none'
+      badge.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease'
+      badge.style.zIndex = '5'
+
+      if (place.type === 'continent') {
+        badge.style.background = 'rgba(15, 23, 42, 0.85)'
+        badge.style.backdropFilter = 'blur(10px)'
+        badge.style.border = '1px solid rgba(226, 232, 240, 0.4)'
+        badge.style.color = '#f8fafc'
+        badge.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.6)'
+      } else if (place.type === 'sea' || place.type === 'ocean') {
+        badge.style.background = 'rgba(6, 182, 212, 0.25)'
+        badge.style.backdropFilter = 'blur(10px)'
+        badge.style.border = '1px solid rgba(6, 182, 212, 0.6)'
+        badge.style.color = '#38bdf8'
+        badge.style.boxShadow = '0 0 16px rgba(6, 182, 212, 0.4)'
+      } else {
+        badge.style.background = 'rgba(15, 23, 42, 0.8)'
+        badge.style.backdropFilter = 'blur(8px)'
+        badge.style.border = '1px solid rgba(255, 255, 255, 0.2)'
+        badge.style.color = '#e2e8f0'
+        badge.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.4)'
+      }
+
+      badge.textContent = place.name
+
+      badge.onmouseenter = () => {
+        badge.style.borderColor = '#38bdf8'
+        badge.style.boxShadow = '0 0 20px rgba(56, 189, 248, 0.7)'
+      }
+      badge.onmouseleave = () => {
+        badge.style.borderColor = (place.type === 'sea' || place.type === 'ocean') ? 'rgba(6, 182, 212, 0.6)' : (place.type === 'continent' ? 'rgba(226, 232, 240, 0.4)' : 'rgba(255, 255, 255, 0.2)')
+        badge.style.boxShadow = (place.type === 'sea' || place.type === 'ocean') ? '0 0 16px rgba(6, 182, 212, 0.4)' : 'none'
+      }
+
+      badge.onclick = (e) => {
+        e.stopPropagation()
+        flyToPoint(place.lat, place.lon, place.zoomDist || 26)
+      }
+
+      container.appendChild(badge)
+      geoPlacesDomRef.current.push({ place, domElement: badge, vec3 })
+    })
+
+    return () => {
+      container.innerHTML = ''
+      geoPlacesDomRef.current = []
+    }
+  }, [flyToPoint])
 
   return (
     <div ref={mountRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
       <div ref={labelsContainerRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'hidden' }} />
+      <div ref={geoBadgesContainerRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'hidden', zIndex: 12 }} />
       
       {/* Top Left Header & SDG Badges */}
       <div style={{ position: 'absolute', top: 16, left: 24, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2122,6 +2255,10 @@ export default function OceanScene() {
           showVessels={showVessels} setShowVessels={setShowVessels}
           showCalamities={showCalamities} setShowCalamities={setShowCalamities}
           showSatellites={showSatellites} setShowSatellites={setShowSatellites}
+          showGeoNames={showGeoNames} setShowGeoNames={setShowGeoNames}
+          showSeaLabels={showSeaLabels} setShowSeaLabels={setShowSeaLabels}
+          showInteractiveBadges={showInteractiveBadges} setShowInteractiveBadges={setShowInteractiveBadges}
+          onOpenGoogleMaps={() => setIsGoogleMapsModalOpen(true)}
           onOpenCoastalRisk={() => setIsCoastalRiskModalOpen(true)}
           onOpenWorldMonitor={() => setIsWorldMonitorOpen(true)}
           onOpenUpload={() => setIsUploadModalOpen(true)}
@@ -2494,6 +2631,19 @@ export default function OceanScene() {
         onOpenGlider={() => setShowGlider(true)}
         onOpenDiscrepancy={() => setShowDiscrepancy(true)}
         onOpenWorldMonitor={() => setIsWorldMonitorOpen(true)}
+      />
+
+      {/* Cartography & Google Maps Configuration Modal */}
+      <GoogleMapsModal
+        isOpen={isGoogleMapsModalOpen}
+        onClose={() => setIsGoogleMapsModalOpen(false)}
+        onFlyTo={flyTo}
+        showGeoNames={showGeoNames}
+        setShowGeoNames={setShowGeoNames}
+        showSeaLabels={showSeaLabels}
+        setShowSeaLabels={setShowSeaLabels}
+        showInteractiveBadges={showInteractiveBadges}
+        setShowInteractiveBadges={setShowInteractiveBadges}
       />
     </div>
   )
