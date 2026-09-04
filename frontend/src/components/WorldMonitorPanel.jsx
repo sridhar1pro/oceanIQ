@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
-export default function WorldMonitorPanel({ isOpen, onClose, onFocusCoordinates, onSelectVessel }) {
+export default function WorldMonitorPanel({ isOpen, onClose, onFocusCoordinates, onSelectVessel, onSelectSatellite }) {
   const [activeTab, setActiveTab] = useState('vessels') // 'vessels' | 'calamities' | 'webcams' | 'satellites'
   const [vessels, setVessels] = useState([])
   const [calamities, setCalamities] = useState(null)
@@ -379,29 +379,36 @@ export default function WorldMonitorPanel({ isOpen, onClose, onFocusCoordinates,
                 {satellites.map(sat => (
                   <div key={sat.id} className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-1">
                         <h4 className="font-bold text-purple-300 text-sm">{sat.name}</h4>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 font-mono">
                           {sat.id}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mb-2">{sat.type}</p>
+                      <p className="text-xs text-slate-400 mb-2">{sat.agency || 'Earth Observation'} • {sat.type}</p>
                       <div className="text-xs bg-slate-900/80 p-2.5 rounded-lg border border-slate-700/50 mb-3 space-y-1 font-mono">
                         <div>Altitude: <strong className="text-purple-300">{sat.altitude_km} km</strong></div>
                         <div>Position: <strong className="text-slate-300">{sat.current_lat}°N, {sat.current_lon}°E</strong></div>
+                        <div>Velocity: <strong className="text-cyan-300">{sat.velocity_kms} km/s</strong></div>
                         <div className="text-[11px] text-slate-400 leading-tight pt-1">
                           <strong>Sensors:</strong> {sat.sensor}
                         </div>
+                        {sat.incois_role && (
+                          <div className="text-[11px] text-purple-300/90 leading-tight pt-1 border-t border-slate-800">
+                            <strong>INCOIS Mandate:</strong> {sat.incois_role}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <button
                       onClick={() => {
                         onFocusCoordinates?.(sat.current_lat, sat.current_lon, 32)
+                        onSelectSatellite?.(sat)
                         onClose()
                       }}
-                      className="w-full py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-500 hover:text-slate-950 text-purple-300 text-xs font-semibold border border-purple-500/30 transition-all"
+                      className="w-full py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-500 hover:text-slate-950 text-purple-300 text-xs font-semibold border border-purple-500/30 transition-all flex items-center justify-center gap-1.5"
                     >
-                      🛰️ Orbit Track ({sat.current_lat}°, {sat.current_lon}°)
+                      🛰️ Track on 3D Globe ({sat.current_lat}°, {sat.current_lon}°)
                     </button>
                   </div>
                 ))}

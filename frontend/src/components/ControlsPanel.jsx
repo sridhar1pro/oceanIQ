@@ -39,6 +39,7 @@ export default function ControlsPanel({
   showCoastalRisk, setShowCoastalRisk,
   showVessels, setShowVessels,
   showCalamities, setShowCalamities,
+  showSatellites, setShowSatellites,
   onOpenCoastalRisk,
   onOpenWorldMonitor,
   onOpenUpload,
@@ -208,6 +209,18 @@ export default function ControlsPanel({
             <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Midhili-II, Tsunami, MHW</div>
           </div>
           <ToggleSwitch checked={showCalamities} onChange={setShowCalamities} />
+        </div>
+
+        {/* 3D Ocean Satellites & Orbits */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'rgba(30, 41, 59, 0.6)', padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)'
+        }}>
+          <div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#a78bfa' }}>🛰️ Ocean Satellites (6 Orbits)</div>
+            <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Oceansat-3, Sentinel, SWOT</div>
+          </div>
+          <ToggleSwitch checked={showSatellites} onChange={setShowSatellites} />
         </div>
 
         {/* 3D AUV Glider */}

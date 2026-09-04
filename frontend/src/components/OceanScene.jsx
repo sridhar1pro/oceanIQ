@@ -169,11 +169,14 @@ export default function OceanScene() {
   const [selectedPort, setSelectedPort] = useState(null)
   const [selectedVessel, setSelectedVessel] = useState(null)
   const [selectedCalamity, setSelectedCalamity] = useState(null)
+  const [showSatellites, setShowSatellites] = useState(true)
+  const [selectedSatellite, setSelectedSatellite] = useState(null)
 
   const gliderGroupRef = useRef(null)
   const coastalGroupRef = useRef(null)
   const vesselsGroupRef = useRef(null)
   const calamitiesGroupRef = useRef(null)
+  const satellitesGroupRef = useRef(null)
   const gliderVesselRef = useRef(null)
   const gliderCurveRef = useRef(null)
   const [selectedInstrumentId, setSelectedInstrumentId] = useState(null)
@@ -198,7 +201,7 @@ export default function OceanScene() {
   const gridDataRef = useRef(null)
   const raycasterRef = useRef(new THREE.Raycaster())
   const mouseRef = useRef(new THREE.Vector2())
-  const pointerDownTimeRef = useRef(0)
+  const pointerDownPosRef = useRef({ x: 0, y: 0 })
   const hoveredInstrumentIdRef = useRef(null)
   const earthMeshRef = useRef(null)
 
@@ -340,6 +343,10 @@ export default function OceanScene() {
     }
     if (aiData.action === 'SHOW_CALAMITIES') {
       setShowCalamities(true)
+      setIsWorldMonitorOpen(true)
+    }
+    if (aiData.action === 'SHOW_SATELLITES') {
+      setShowSatellites(true)
       setIsWorldMonitorOpen(true)
     }
     if (aiData.open_panel === 'world_monitor') {
@@ -531,6 +538,58 @@ export default function OceanScene() {
           }
         })
       }
+
+      // Animate 3D Orbiting Satellites along inclined orbital paths
+      if (satellitesGroupRef.current) {
+        const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
+        satellitesGroupRef.current.children.forEach(obj => {
+          if (obj.userData?.isSatellite) {
+            const data = obj.userData
+            data.u = (data.u + data.orbitSpeed * vSpeed) % (2 * Math.PI)
+            const u = data.u
+            const r = data.rOrb
+            const inc = data.incRad
+            const raan = data.raanRad
+
+            // Calculate 3D position
+            const xOrb = r * Math.cos(u)
+            const yOrb = r * Math.sin(u)
+            const x1 = xOrb
+            const y1 = yOrb * Math.cos(inc)
+            const z1 = yOrb * Math.sin(inc)
+            const x2 = x1 * Math.cos(raan) + z1 * Math.sin(raan)
+            const y2 = y1
+            const z2 = -x1 * Math.sin(raan) + z1 * Math.cos(raan)
+
+            obj.position.set(x2, y2, z2)
+            obj.lookAt(0, 0, 0)
+
+            // Pulsating halo
+            const halo = obj.children.find(c => c.userData?.isSatHalo)
+            if (halo) {
+              const s = 1.0 + 0.25 * Math.sin(timeSec * 3 + (data.satIdx || 0))
+              halo.scale.set(s, s, 1)
+            }
+
+            // Subsatellite point on Earth surface
+            const subSat = obj.position.clone().normalize().multiplyScalar(R_BASE + 0.1)
+
+            // Update Nadir Projection Line
+            if (data.nadirLine) {
+              const posArr = data.nadirLine.geometry.attributes.position.array
+              posArr[0] = x2; posArr[1] = y2; posArr[2] = z2
+              posArr[3] = subSat.x; posArr[4] = subSat.y; posArr[5] = subSat.z
+              data.nadirLine.geometry.attributes.position.needsUpdate = true
+            }
+
+            // Update Swath Footprint on Earth
+            if (data.swathMesh) {
+              data.swathMesh.position.copy(subSat)
+              data.swathMesh.lookAt(0, 0, 0)
+            }
+          }
+        })
+      }
       
       if (markersRef.current && labelsContainerRef.current) {
         markersRef.current.children.forEach(mesh => {
@@ -581,10 +640,14 @@ export default function OceanScene() {
     window.addEventListener('resize', onResize)
 
     /* ── Interaction handlers ──────── */
-    container.addEventListener('pointerdown', () => pointerDownTimeRef.current = Date.now())
+    container.addEventListener('pointerdown', (e) => {
+      pointerDownPosRef.current = { x: e.clientX, y: e.clientY }
+    })
     container.addEventListener('pointerup', (e) => {
-      if (Date.now() - pointerDownTimeRef.current > 200) return
-      if (!markersRef.current || !cameraRef.current) return
+      const dx = e.clientX - pointerDownPosRef.current.x
+      const dy = e.clientY - pointerDownPosRef.current.y
+      if (Math.hypot(dx, dy) > 8) return // user dragged to rotate the globe
+      if (!cameraRef.current) return
       
       const rect = container.getBoundingClientRect()
       mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
@@ -592,32 +655,40 @@ export default function OceanScene() {
       
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current)
       
-      // Check marker intersections first
-      const markerIntersects = raycasterRef.current.intersectObjects(markersRef.current.children, true)
-      if (markerIntersects.length > 0) {
-        let instrumentMesh = markerIntersects[0].object
-        while (instrumentMesh && !instrumentMesh.userData?.isInstrument) {
-          instrumentMesh = instrumentMesh.parent
-        }
-        if (instrumentMesh) {
-          onMarkerClick(instrumentMesh.userData.id)
-          setSurfacePointInfo(null)
-          return
+      // 1. Check in-situ instrument markers first
+      if (markersRef.current) {
+        const markerIntersects = raycasterRef.current.intersectObjects(markersRef.current.children, true)
+        if (markerIntersects.length > 0) {
+          let instrumentMesh = markerIntersects[0].object
+          while (instrumentMesh && !instrumentMesh.userData?.isInstrument) {
+            instrumentMesh = instrumentMesh.parent
+          }
+          if (instrumentMesh) {
+            onMarkerClick(instrumentMesh.userData.id)
+            setSurfacePointInfo(null)
+            setSelectedVessel(null)
+            setSelectedCalamity(null)
+            setSelectedSatellite(null)
+            return
+          }
         }
       }
 
-      // Check glider waypoint intersections
+      // 2. Check glider waypoint intersections
       if (gliderGroupRef.current) {
         const gliderHits = raycasterRef.current.intersectObjects(gliderGroupRef.current.children, true)
         const wpObj = gliderHits.find(h => h.object.userData?.isGliderWaypoint)
         if (wpObj) {
           setSelectedGliderWaypoint(wpObj.object.userData.waypoint)
           setSurfacePointInfo(null)
+          setSelectedVessel(null)
+          setSelectedCalamity(null)
+          setSelectedSatellite(null)
           return
         }
       }
 
-      // Check coastal port intersections
+      // 3. Check coastal port intersections
       if (coastalGroupRef.current) {
         const portHits = raycasterRef.current.intersectObjects(coastalGroupRef.current.children, true)
         const portObj = portHits.find(h => h.object.userData?.isCoastalPort)
@@ -625,11 +696,28 @@ export default function OceanScene() {
           setSelectedPort(portObj.object.userData.portData)
           setIsCoastalRiskModalOpen(true)
           setSurfacePointInfo(null)
+          setSelectedVessel(null)
+          setSelectedCalamity(null)
+          setSelectedSatellite(null)
           return
         }
       }
 
-      // Check vessel intersections
+      // 4. Check 3D ocean satellites
+      if (satellitesGroupRef.current) {
+        const satHits = raycasterRef.current.intersectObjects(satellitesGroupRef.current.children, true)
+        const sObj = satHits.find(h => h.object.userData?.isSatellite || h.object.parent?.userData?.isSatellite)
+        if (sObj) {
+          const sData = sObj.object.userData?.satellite || sObj.object.parent?.userData?.satellite
+          setSelectedSatellite(sData)
+          setSelectedVessel(null)
+          setSelectedCalamity(null)
+          setSurfacePointInfo(null)
+          return
+        }
+      }
+
+      // 5. Check vessel intersections
       if (vesselsGroupRef.current) {
         const vesselHits = raycasterRef.current.intersectObjects(vesselsGroupRef.current.children, true)
         const vObj = vesselHits.find(h => h.object.userData?.isVessel || h.object.parent?.userData?.isVessel)
@@ -637,12 +725,13 @@ export default function OceanScene() {
           const vData = vObj.object.userData?.vessel || vObj.object.parent?.userData?.vessel
           setSelectedVessel(vData)
           setSelectedCalamity(null)
+          setSelectedSatellite(null)
           setSurfacePointInfo(null)
           return
         }
       }
 
-      // Check calamity intersections
+      // 6. Check calamity intersections
       if (calamitiesGroupRef.current) {
         const calHits = raycasterRef.current.intersectObjects(calamitiesGroupRef.current.children, true)
         const cObj = calHits.find(h => h.object.userData?.isCalamity || h.object.parent?.userData?.isCalamity)
@@ -650,92 +739,128 @@ export default function OceanScene() {
           const cData = cObj.object.userData?.calamity || cObj.object.parent?.userData?.calamity
           setSelectedCalamity(cData)
           setSelectedVessel(null)
+          setSelectedSatellite(null)
           setSurfacePointInfo(null)
           return
         }
       }
       
-      // Check surface intersections
+      // 7. Universal Surface Intersections (Volume meshes or base Earth globe)
+      let hitSurfacePoint = null
       if (volumeGroupRef.current) {
          const surfaceIntersects = raycasterRef.current.intersectObjects(volumeGroupRef.current.children, true)
-         const validSurface = surfaceIntersects.find(i => i.object.userData.isVolumePart)
+         const validSurface = surfaceIntersects.find(i => i.object.userData?.isVolumePart)
          if (validSurface) {
-            const p = validSurface.point
-            const normP = p.clone().normalize()
-            const clickedLat = Math.asin(normP.y) * 180 / Math.PI
-            let theta = Math.atan2(normP.x, normP.z)
-            if (theta < 0) theta += 2 * Math.PI
-            const clickedLon = (theta * 180 / Math.PI) - 180
-            
-            // Measure Mode Logic
-            if (measureModeRef.current) {
-              measurePointsRef.current.push({ lat: clickedLat, lon: clickedLon, pos: p.clone() })
-              
-              if (measurePointsRef.current.length === 1) {
-                 // Place first marker
-                 const markerGeo = new THREE.SphereGeometry(0.2, 16, 16)
-                 const markerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff })
-                 const marker = new THREE.Mesh(markerGeo, markerMat)
-                 marker.position.copy(p)
-                 marker.userData.isMeasureMarker = true
-                 volumeGroupRef.current.add(marker)
-              } else if (measurePointsRef.current.length === 2) {
-                 // Place second marker and draw line
-                 const [p1, p2] = measurePointsRef.current
-                 const markerGeo = new THREE.SphereGeometry(0.2, 16, 16)
-                 const markerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff })
-                 const marker = new THREE.Mesh(markerGeo, markerMat)
-                 marker.position.copy(p2.pos)
-                 marker.userData.isMeasureMarker = true
-                 volumeGroupRef.current.add(marker)
-                 
-                 // Draw great circle line (simplified straight line for now in 3D space)
-                 const lineGeo = new THREE.BufferGeometry().setFromPoints([p1.pos, p2.pos])
-                 const lineMat = new THREE.LineBasicMaterial({ color: 0xff00ff, linewidth: 2 })
-                 const line = new THREE.Line(lineGeo, lineMat)
-                 line.userData.isMeasureMarker = true
-                 volumeGroupRef.current.add(line)
-                 
-                 // Haversine distance
-                 const R_EARTH_KM = 6371
-                 const dLat = (p2.lat - p1.lat) * Math.PI / 180
-                 const dLon = (p2.lon - p1.lon) * Math.PI / 180
-                 const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(p1.lat*Math.PI/180)*Math.cos(p2.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2)
-                 const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-                 const distKm = R_EARTH_KM * c
-                 
-                 alert(`Distance: ${distKm.toFixed(1)} km`)
-                 measurePointsRef.current = [] // reset
-                 setMeasureMode(false)
-              }
-              return
-            }
-
-            // Convert 3D world coordinate to 2D screen coordinate for the popup
-            const tempV = p.clone()
-            tempV.project(cameraRef.current)
-            const sx = (tempV.x * 0.5 + 0.5) * rect.width
-            const sy = (tempV.y * -0.5 + 0.5) * rect.height
-            
-            let value = null;
-            if (gridDataRef.current && gridDataRef.current.validData) {
-              const pts = gridDataRef.current.validData;
-              let minDist = Infinity;
-              for (let pt of pts) {
-                const d = Math.pow(pt.lat - clickedLat, 2) + Math.pow(pt.lon - clickedLon, 2);
-                if (d < minDist) { minDist = d; value = pt.value; }
-              }
-            }
-
-            setSurfacePointInfo({
-               lat: clickedLat,
-               lon: clickedLon,
-               val: value,
-               x: sx,
-               y: sy
-            })
-            return
+            hitSurfacePoint = validSurface.point
          }
+      }
+      if (!hitSurfacePoint && earthMeshRef.current) {
+         const earthIntersects = raycasterRef.current.intersectObject(earthMeshRef.current)
+         if (earthIntersects.length > 0) {
+            hitSurfacePoint = earthIntersects[0].point
+         }
+      }
+
+      if (hitSurfacePoint) {
+         const p = hitSurfacePoint
+         const normP = p.clone().normalize()
+         const clickedLat = Math.asin(normP.y) * 180 / Math.PI
+         let theta = Math.atan2(normP.x, normP.z)
+         if (theta < 0) theta += 2 * Math.PI
+         const clickedLon = (theta * 180 / Math.PI) - 180
+         
+         // Measure Mode Logic
+         if (measureModeRef.current) {
+           measurePointsRef.current.push({ lat: clickedLat, lon: clickedLon, pos: p.clone() })
+           
+           if (measurePointsRef.current.length === 1) {
+              const markerGeo = new THREE.SphereGeometry(0.2, 16, 16)
+              const markerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff })
+              const marker = new THREE.Mesh(markerGeo, markerMat)
+              marker.position.copy(p)
+              marker.userData.isMeasureMarker = true
+              volumeGroupRef.current?.add(marker)
+           } else if (measurePointsRef.current.length === 2) {
+              const [p1, p2] = measurePointsRef.current
+              const markerGeo = new THREE.SphereGeometry(0.2, 16, 16)
+              const markerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff })
+              const marker = new THREE.Mesh(markerGeo, markerMat)
+              marker.position.copy(p2.pos)
+              marker.userData.isMeasureMarker = true
+              volumeGroupRef.current?.add(marker)
+              
+              const lineGeo = new THREE.BufferGeometry().setFromPoints([p1.pos, p2.pos])
+              const lineMat = new THREE.LineBasicMaterial({ color: 0xff00ff, linewidth: 2 })
+              const line = new THREE.Line(lineGeo, lineMat)
+              line.userData.isMeasureMarker = true
+              volumeGroupRef.current?.add(line)
+              
+              const R_EARTH_KM = 6371
+              const dLat = (p2.lat - p1.lat) * Math.PI / 180
+              const dLon = (p2.lon - p1.lon) * Math.PI / 180
+              const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(p1.lat*Math.PI/180)*Math.cos(p2.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2)
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+              const distKm = R_EARTH_KM * c
+              
+              alert(`Distance: ${distKm.toFixed(1)} km`)
+              measurePointsRef.current = []
+              setMeasureMode(false)
+           }
+           return
+         }
+
+         // Drop tactical animated inspection ping beacon at point
+         if (volumeGroupRef.current) {
+           const oldPings = volumeGroupRef.current.children.filter(c => c.userData?.isClickPing)
+           oldPings.forEach(c => volumeGroupRef.current.remove(c))
+
+           const pingGroup = new THREE.Group()
+           pingGroup.position.copy(p)
+           pingGroup.lookAt(0, 0, 0)
+
+           const ringGeo = new THREE.RingGeometry(0.22, 0.48, 32)
+           const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+           const ring = new THREE.Mesh(ringGeo, ringMat)
+           ring.userData = { isClickPingRing: true }
+           pingGroup.add(ring)
+
+           const dotGeo = new THREE.SphereGeometry(0.1, 14, 14)
+           const dotMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4 })
+           const dot = new THREE.Mesh(dotGeo, dotMat)
+           dot.position.set(0, 0, 0.06)
+           pingGroup.add(dot)
+
+           pingGroup.userData = { isClickPing: true }
+           volumeGroupRef.current.add(pingGroup)
+         }
+
+         // Convert 3D world coordinate to 2D screen coordinate for the popup
+         const tempV = p.clone()
+         tempV.project(cameraRef.current)
+         const sx = (tempV.x * 0.5 + 0.5) * rect.width
+         const sy = (tempV.y * -0.5 + 0.5) * rect.height
+         
+         let value = null
+         if (gridDataRef.current && gridDataRef.current.validData) {
+           const pts = gridDataRef.current.validData
+           let minDist = Infinity
+           for (let pt of pts) {
+             const d = Math.pow(pt.lat - clickedLat, 2) + Math.pow(pt.lon - clickedLon, 2)
+             if (d < minDist) { minDist = d; value = pt.value }
+           }
+         }
+
+         setSurfacePointInfo({
+            lat: clickedLat,
+            lon: clickedLon,
+            val: value,
+            x: sx,
+            y: sy
+         })
+         setSelectedVessel(null)
+         setSelectedCalamity(null)
+         setSelectedSatellite(null)
+         return
       }
       
       setSurfacePointInfo(null)
@@ -1633,6 +1758,142 @@ export default function OceanScene() {
       .catch(err => console.error('Error rendering calamities:', err))
   }, [showCalamities])
 
+  // ── Render 3D Ocean Satellites & Orbits Layer ──
+  useEffect(() => {
+    if (!sceneRef.current) return
+    const scene = sceneRef.current
+
+    if (satellitesGroupRef.current) {
+      scene.remove(satellitesGroupRef.current)
+      satellitesGroupRef.current.traverse(obj => {
+        obj.geometry?.dispose()
+        if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose())
+        else obj.material?.dispose()
+      })
+      satellitesGroupRef.current = null
+    }
+
+    if (!showSatellites) return
+
+    fetch('/api/satellites')
+      .then(r => r.json())
+      .then(res => {
+        if (!res || !res.satellites) return
+        const satellites = res.satellites
+        const group = new THREE.Group()
+        group.userData = { isSatellitesGroup: true }
+        const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
+
+        satellites.forEach((sat, satIdx) => {
+          const isGeo = sat.altitude_km > 30000
+          const rOrb = isGeo ? (R_BASE + 18) : (R_BASE + 5.5 + (satIdx * 0.9))
+          const incRad = (sat.inclination_deg || 0) * Math.PI / 180
+          const raanRad = (satIdx * (Math.PI / 3))
+
+          // 1. Draw 3D Elliptical Orbit Ring
+          const orbitPts = []
+          const segments = 120
+          for (let s = 0; s <= segments; s++) {
+            const u = (s / segments) * 2 * Math.PI
+            const xOrb = rOrb * Math.cos(u)
+            const yOrb = rOrb * Math.sin(u)
+            // Inclination around X
+            const x1 = xOrb
+            const y1 = yOrb * Math.cos(incRad)
+            const z1 = yOrb * Math.sin(incRad)
+            // RAAN around Y
+            const x2 = x1 * Math.cos(raanRad) + z1 * Math.sin(raanRad)
+            const y2 = y1
+            const z2 = -x1 * Math.sin(raanRad) + z1 * Math.cos(raanRad)
+            orbitPts.push(new THREE.Vector3(x2, y2, z2))
+          }
+          const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPts)
+          let orbitColor = 0xa78bfa
+          if (sat.id === 'OCEANSAT-3') orbitColor = 0x38bdf8
+          else if (sat.id === 'INSAT-3DR') orbitColor = 0xf59e0b
+          else if (sat.id === 'SENTINEL-3A') orbitColor = 0x10b981
+          else if (sat.id === 'SWOT') orbitColor = 0xec4899
+
+          const orbitMat = new THREE.LineBasicMaterial({
+            color: orbitColor,
+            transparent: true,
+            opacity: 0.45
+          })
+          const orbitLine = new THREE.Line(orbitGeo, orbitMat)
+          group.add(orbitLine)
+
+          // 2. 3D Satellite Body
+          const satBodyGroup = new THREE.Group()
+
+          // Main Bus
+          const busGeo = new THREE.BoxGeometry(0.3, 0.3, 0.45)
+          const busMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+          const busMesh = new THREE.Mesh(busGeo, busMat)
+          satBodyGroup.add(busMesh)
+
+          // Solar Array Wings
+          const wingGeo = new THREE.BoxGeometry(1.4, 0.03, 0.35)
+          const wingMat = new THREE.MeshBasicMaterial({ color: 0x1e3a8a })
+          const wings = new THREE.Mesh(wingGeo, wingMat)
+          satBodyGroup.add(wings)
+
+          // Instrument Parabolic Antenna
+          const dishGeo = new THREE.ConeGeometry(0.18, 0.12, 16)
+          dishGeo.rotateX(Math.PI)
+          const dishMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 })
+          const dish = new THREE.Mesh(dishGeo, dishMat)
+          dish.position.set(0, -0.2, 0)
+          satBodyGroup.add(dish)
+
+          // Pulsing Glow Halo
+          const haloGeo = new THREE.RingGeometry(0.35, 0.6, 16)
+          const haloMat = new THREE.MeshBasicMaterial({ color: orbitColor, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+          const halo = new THREE.Mesh(haloGeo, haloMat)
+          halo.userData = { isSatHalo: true }
+          satBodyGroup.add(halo)
+
+          // 3. Nadir Projection Line
+          const nadirGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, 0)
+          ])
+          const nadirMat = new THREE.LineBasicMaterial({
+            color: orbitColor,
+            transparent: true,
+            opacity: 0.5
+          })
+          const nadirLine = new THREE.Line(nadirGeo, nadirMat)
+          group.add(nadirLine)
+
+          // 4. Ground Swath Footprint Circle on Earth
+          const swathRadius = Math.min(2.5, Math.max(0.7, (sat.swath_width_km || 1000) / 700))
+          const swathGeo = new THREE.RingGeometry(swathRadius * 0.7, swathRadius, 32)
+          const swathMat = new THREE.MeshBasicMaterial({ color: orbitColor, side: THREE.DoubleSide, transparent: true, opacity: 0.4 })
+          const swathMesh = new THREE.Mesh(swathGeo, swathMat)
+          group.add(swathMesh)
+
+          satBodyGroup.userData = {
+            isSatellite: true,
+            satellite: sat,
+            satIdx,
+            rOrb,
+            incRad,
+            raanRad,
+            u: (satIdx * 1.05),
+            orbitSpeed: (2 * Math.PI) / ((sat.period_min || 100) * 20),
+            nadirLine,
+            swathMesh
+          }
+
+          group.add(satBodyGroup)
+        })
+
+        scene.add(group)
+        satellitesGroupRef.current = group
+      })
+      .catch(err => console.error('Error rendering satellites:', err))
+  }, [showSatellites])
+
   // Satellite Overlay (NASA GIBS) has been removed because the global ESRI map serves this purpose natively.
 
   return (
@@ -1829,6 +2090,7 @@ export default function OceanScene() {
           showCoastalRisk={showCoastalRisk} setShowCoastalRisk={setShowCoastalRisk}
           showVessels={showVessels} setShowVessels={setShowVessels}
           showCalamities={showCalamities} setShowCalamities={setShowCalamities}
+          showSatellites={showSatellites} setShowSatellites={setShowSatellites}
           onOpenCoastalRisk={() => setIsCoastalRiskModalOpen(true)}
           onOpenWorldMonitor={() => setIsWorldMonitorOpen(true)}
           onOpenUpload={() => setIsUploadModalOpen(true)}
@@ -2046,6 +2308,13 @@ export default function OceanScene() {
         onClose={() => setIsWorldMonitorOpen(false)}
         onFocusCoordinates={(lat, lon, dist) => flyToPoint(lat, lon, dist)}
         onSelectVessel={(v) => setSelectedVessel(v)}
+        onSelectSatellite={(sat) => {
+          setSelectedSatellite(sat)
+          setShowSatellites(true)
+          if (sat.current_lat != null && sat.current_lon != null) {
+            flyToPoint(sat.current_lat, sat.current_lon, 32)
+          }
+        }}
       />
 
       {/* Tactical Vessel HUD Card */}
@@ -2128,6 +2397,53 @@ export default function OceanScene() {
           )}
           <div style={{ fontSize: '0.72rem', color: '#e2e8f0', background: 'rgba(0,0,0,0.4)', padding: '8px 10px', borderRadius: 8, lineHeight: 1.4 }}>
             {selectedCalamity.advisory || selectedCalamity.impact || `Status: ${selectedCalamity.itewc_status}`}
+          </div>
+        </div>
+      )}
+
+      {/* Tactical Satellite Telemetry HUD Card */}
+      {selectedSatellite && (
+        <div style={{
+          position: 'absolute', top: 100, right: 24, zIndex: 40, width: 350,
+          background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(167, 139, 250, 0.6)', borderRadius: 14, padding: 16,
+          color: '#e2e8f0', boxShadow: '0 12px 40px rgba(0,0,0,0.8), 0 0 30px rgba(167,139,250,0.25)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '1.4rem' }}>🛰️</span>
+              <div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#c084fc' }}>{selectedSatellite.name}</div>
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{selectedSatellite.agency} • {selectedSatellite.type}</div>
+              </div>
+            </div>
+            <button onClick={() => setSelectedSatellite(null)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: '0.75rem', marginBottom: 10 }}>
+            <div style={{ background: 'rgba(167,139,250,0.08)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#c4b5fd' }}>ALTITUDE</div>
+              <strong style={{ color: '#a78bfa', fontSize: '0.9rem' }}>{selectedSatellite.altitude_km} km</strong>
+            </div>
+            <div style={{ background: 'rgba(167,139,250,0.08)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#c4b5fd' }}>VELOCITY</div>
+              <strong style={{ color: '#38bdf8', fontSize: '0.9rem' }}>{selectedSatellite.velocity_kms} km/s</strong>
+            </div>
+            <div style={{ background: 'rgba(167,139,250,0.08)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#c4b5fd' }}>INCLINATION</div>
+              <strong style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>{selectedSatellite.inclination_deg}°</strong>
+            </div>
+            <div style={{ background: 'rgba(167,139,250,0.08)', padding: '6px 8px', borderRadius: 6 }}>
+              <div style={{ fontSize: '0.62rem', color: '#c4b5fd' }}>SWATH WIDTH</div>
+              <strong style={{ color: '#34d399', fontSize: '0.9rem' }}>{selectedSatellite.swath_width_km} km</strong>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', background: 'rgba(0,0,0,0.35)', padding: '8px 10px', borderRadius: 8, lineHeight: 1.4, marginBottom: 8 }}>
+            🔬 <strong>Payload Sensor:</strong> {selectedSatellite.sensor}<br />
+            🏛️ <strong>INCOIS Role:</strong> {selectedSatellite.incois_role}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.68rem', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 6 }}>
+            <span>📍 Nadir: {selectedSatellite.current_lat != null ? `${selectedSatellite.current_lat.toFixed(1)}°N, ${selectedSatellite.current_lon.toFixed(1)}°E` : 'Orbital'}</span>
+            <span style={{ color: '#10b981', fontWeight: 600 }}>● {selectedSatellite.status || 'OPERATIONAL'}</span>
           </div>
         </div>
       )}

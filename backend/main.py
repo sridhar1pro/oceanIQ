@@ -600,29 +600,98 @@ SATELLITE_ORBITS_DEF = [
     {
         "id": "OCEANSAT-3",
         "name": "ISRO Oceansat-3 (EOS-06)",
+        "agency": "ISRO (Indian Space Research Organisation)",
         "type": "Ocean Colour & Surface Wind Vector Satellite",
+        "orbit_type": "Sun-Synchronous Polar LEO",
         "altitude_km": 720,
-        "sensor": "Ocean Colour Monitor (OCM-3) & Ku-Band Scatterometer",
+        "inclination_deg": 98.28,
+        "period_min": 99.3,
+        "velocity_kms": 7.5,
+        "sensor": "Ocean Colour Monitor (OCM-3), Ku-Band Scatterometer (SCAT-3), Sea Surface Temperature Monitor (SSTM)",
+        "swath_width_km": 1420,
         "current_lat": 15.2, "current_lon": 82.1,
+        "incois_role": "Primary source for Potential Fishing Zone (PFZ) advisories, chlorophyll-a concentration, and cyclone ocean surface wind vector ground-truthing.",
         "status": "Acquiring High-Resolution Ocean Colour Data"
     },
     {
         "id": "SENTINEL-3A",
         "name": "Copernicus Sentinel-3A",
+        "agency": "ESA / EUMETSAT / Copernicus",
         "type": "Radar Altimetry & Sea Surface Temperature",
+        "orbit_type": "Sun-Synchronous Polar LEO",
         "altitude_km": 814,
-        "sensor": "SRAL Synthetic Aperture Radar Altimeter & SLSTR",
+        "inclination_deg": 98.65,
+        "period_min": 101.0,
+        "velocity_kms": 7.45,
+        "sensor": "SRAL Synthetic Aperture Radar Altimeter, SLSTR (Sea & Land Surface Temperature Radiometer), OLCI",
+        "swath_width_km": 1270,
         "current_lat": 11.4, "current_lon": 74.8,
-        "status": "Transmitting Precise Sea Level Anomaly (SLA)"
+        "incois_role": "Calibrates numerical ocean circulation models (NEMO/MOM) with dual-frequency Ku/C band altimetry and Sea Surface Temperature (SST).",
+        "status": "Transmitting Precise Sea Level Anomaly (SLA) & SST"
+    },
+    {
+        "id": "SWOT",
+        "name": "NASA/CNES SWOT",
+        "agency": "NASA / CNES / CSA / UKSA",
+        "type": "Surface Water & Ocean Topography High-Res Radar",
+        "orbit_type": "Non-Sun-Synchronous LEO",
+        "altitude_km": 890,
+        "inclination_deg": 77.6,
+        "period_min": 102.8,
+        "velocity_kms": 7.4,
+        "sensor": "KaRIn (Ka-band Radar Interferometer), Nadir Altimeter, Microwave Radiometer",
+        "swath_width_km": 120,
+        "current_lat": 8.5, "current_lon": 86.4,
+        "incois_role": "Resolves sub-mesoscale ocean eddies (15–100 km) and coastal currents in the Bay of Bengal and Arabian Sea.",
+        "status": "Active Interferometric Sea Surface Topography Mapping"
     },
     {
         "id": "INSAT-3DR",
         "name": "ISRO INSAT-3DR",
-        "type": "Geostationary Meteorological & Oceanographic Satellite",
+        "agency": "ISRO / IMD (India Meteorological Department)",
+        "type": "Geostationary Meteorological & Ocean Observation",
+        "orbit_type": "Geostationary Equatorial Orbit (GEO)",
         "altitude_km": 35786,
-        "sensor": "6-Channel Imager & 19-Channel Sounder",
+        "inclination_deg": 0.0,
+        "period_min": 1436.0,
+        "velocity_kms": 3.07,
+        "sensor": "6-Channel Multi-Spectral Optical Imager & 19-Channel Atmospheric Sounder",
+        "swath_width_km": 10000,
         "current_lat": 0.0, "current_lon": 74.0,
+        "incois_role": "Continuous half-hourly thermal infrared sea surface temperature mapping and cyclone eye tracking across the North Indian Ocean basin.",
         "status": "Continuous Half-Hourly Indian Ocean Met Imager"
+    },
+    {
+        "id": "SARAL",
+        "name": "ISRO-CNES SARAL (AltiKa)",
+        "agency": "ISRO / CNES (Indo-French Ocean Altimetry)",
+        "type": "Ka-band Coastal Radar Altimetry",
+        "orbit_type": "Sun-Synchronous Polar LEO",
+        "altitude_km": 800,
+        "inclination_deg": 98.55,
+        "period_min": 100.6,
+        "velocity_kms": 7.47,
+        "sensor": "AltiKa Ka-band (35.75 GHz) Radar Altimeter & Doris Tracking System",
+        "swath_width_km": 8,
+        "current_lat": 18.1, "current_lon": 71.5,
+        "incois_role": "High-precision coastal altimetry measuring nearshore significant wave height and sea surface heights within 10 km of Indian coastlines.",
+        "status": "Delivering Sub-Centimeter Sea Surface Topography"
+    },
+    {
+        "id": "JASON-3",
+        "name": "Jason-3",
+        "agency": "NOAA / NASA / CNES / EUMETSAT",
+        "type": "Precision Ocean Surface Topography Altimeter",
+        "orbit_type": "Non-Sun-Synchronous Reference Orbit",
+        "altitude_km": 1336,
+        "inclination_deg": 66.04,
+        "period_min": 112.4,
+        "velocity_kms": 7.2,
+        "sensor": "Poseidon-3B Dual-Frequency Radar Altimeter, Advanced Microwave Radiometer (AMR-2)",
+        "swath_width_km": 10,
+        "current_lat": 4.2, "current_lon": 78.5,
+        "incois_role": "Global sea surface height reference calibration standard used to cross-calibrate all regional Indian Ocean altimeter passes.",
+        "status": "Global Sea Level Rise Benchmark Calibration Active"
     }
 ]
 
@@ -803,6 +872,9 @@ def ai_query(req: AIQueryRequest):
             elif any(k in q for k in ["port", "coastal", "risk"]):
                 action = "SHOW_COASTAL_RISK"
                 open_panel = "coastal_risk"
+            elif any(k in q for k in ["satellite", "orbit", "oceansat", "sentinel", "swot", "saral", "jason", "space"]):
+                action = "SHOW_SATELLITES"
+                open_panel = "world_monitor"
 
             return {
                 "query": req.query,
@@ -872,15 +944,18 @@ def ai_query(req: AIQueryRequest):
             "   - Hotspot: Lakshadweep Coral Archipelago (+2.4°C anomaly, DHW: 5.2). High coral bleaching risk."
         )
     # Check for Satellites & Orbital Reconnaissance
-    elif any(k in q for k in ["satellite", "orbit", "oceansat", "sentinel", "insat", "altimetry"]):
+    elif any(k in q for k in ["satellite", "orbit", "oceansat", "sentinel", "insat", "swot", "saral", "jason", "altimetry"]):
         action = "SHOW_SATELLITES"
         open_panel = "world_monitor"
         response = (
             "🛰️ **Satellite Reconnaissance Layer Active**:\n\n"
-            "Tracking operational oceanographic observation satellites in real-time:\n"
-            "- **ISRO Oceansat-3 (EOS-06)**: Orbiting at 720 km sun-synchronous orbit with OCM-3 sensor measuring chlorophyll, ocean color, and Ku-band surface wind vectors.\n"
-            "- **Copernicus Sentinel-3A**: Altimetry satellite at 814 km providing Synthetic Aperture Radar Sea Level Anomaly (SLA) measurements.\n"
-            "- **INSAT-3DR**: Geostationary ocean meteorological imager stationed at 74.0°E."
+            "Tracking **6 Active Earth Observation Satellites** with real 3D orbits and sensor swaths:\n"
+            "- **ISRO Oceansat-3 (EOS-06)**: 720 km sun-synchronous orbit, OCM-3 Ocean Colour Monitor & Ku-band scatterometer.\n"
+            "- **Copernicus Sentinel-3A**: 814 km orbit, SRAL SAR altimeter & SLSTR Sea Surface Temperature.\n"
+            "- **NASA/CNES SWOT**: 890 km orbit, KaRIn wide-swath radar interferometer for ocean sub-mesoscale eddies.\n"
+            "- **ISRO INSAT-3DR**: 35,786 km geostationary orbit at 74.0°E over the Indian Ocean.\n"
+            "- **ISRO-CNES SARAL (AltiKa)**: 800 km orbit, Ka-band coastal altimeter.\n"
+            "- **Jason-3**: 1336 km reference orbit, global ocean sea surface height benchmark."
         )
     # Check for Live Webcams & Harbor Feeds
     elif any(k in q for k in ["webcam", "camera", "live feed", "harbor feed", "port cam"]):
