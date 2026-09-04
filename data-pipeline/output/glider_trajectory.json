@@ -1,0 +1,715 @@
+{
+  "glider_id": "INCOIS_GLIDER_7902460",
+  "name": "INCOIS Deep Ocean Glider (AUV-7902460)",
+  "mission": "SIH-26067 Bay of Bengal High-Resolution Hydrographic Transect",
+  "type": "Slocum G3 Autonomous Underwater Glider",
+  "total_cycles": 16,
+  "transect": "Chennai - Port Blair Deep Channel",
+  "status": "MISSION ACTIVE (Sawtooth 3D Profiling)",
+  "waypoints": [
+    {
+      "cycle": 1,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 13.5,
+      "lon": 85.15,
+      "surface_depth": 0.5,
+      "dive_max_depth": 86.5,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.1,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 30.3,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 86.5,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 38.9,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 13.4051,
+      "lon": 85.4315,
+      "surface_depth": 0.5,
+      "dive_max_depth": 87.2,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.4,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 30.5,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 87.2,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 39.2,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 3,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 13.3009,
+      "lon": 85.6912,
+      "surface_depth": 0.5,
+      "dive_max_depth": 87.6,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.5,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 30.7,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 87.6,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 39.4,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 4,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 13.1798,
+      "lon": 85.9344,
+      "surface_depth": 0.5,
+      "dive_max_depth": 87.5,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.4,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 30.6,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 87.5,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 39.4,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 5,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 13.0366,
+      "lon": 86.169,
+      "surface_depth": 0.5,
+      "dive_max_depth": 86.9,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.4,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 30.4,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 86.9,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 39.1,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 6,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 12.8697,
+      "lon": 86.4042,
+      "surface_depth": 0.5,
+      "dive_max_depth": 86.7,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.4,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 30.3,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 86.7,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 39.0,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 7,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 12.6813,
+      "lon": 86.6494,
+      "surface_depth": 0.5,
+      "dive_max_depth": 86.5,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.3,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 30.3,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 86.5,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 38.9,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 8,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 12.4769,
+      "lon": 86.912,
+      "surface_depth": 0.5,
+      "dive_max_depth": 84.3,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.3,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 29.5,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 84.3,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 37.9,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 9,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 12.2646,
+      "lon": 87.1969,
+      "surface_depth": 0.5,
+      "dive_max_depth": 84.2,
+      "battery_voltage_v": 11.76,
+      "pump_power_w": 1.11,
+      "internal_temp_c": 25.6,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 29.5,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 84.2,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 37.9,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 10,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 12.0536,
+      "lon": 87.5055,
+      "surface_depth": 0.5,
+      "dive_max_depth": 83.6,
+      "battery_voltage_v": 11.76,
+      "pump_power_w": 1.11,
+      "internal_temp_c": 25.6,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 29.3,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 83.6,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 37.6,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 11,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 11.8531,
+      "lon": 87.8353,
+      "surface_depth": 0.5,
+      "dive_max_depth": 82.2,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.11,
+      "internal_temp_c": 25.9,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 28.8,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 82.2,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 37.0,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 12,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 11.6706,
+      "lon": 88.1806,
+      "surface_depth": 0.5,
+      "dive_max_depth": 81.6,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.1,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 28.6,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 81.6,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 36.7,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 13,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 11.5106,
+      "lon": 88.5331,
+      "surface_depth": 0.5,
+      "dive_max_depth": 81.1,
+      "battery_voltage_v": 11.77,
+      "pump_power_w": 1.11,
+      "internal_temp_c": 25.6,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 28.4,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 81.1,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 36.5,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 14,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 11.3741,
+      "lon": 88.8836,
+      "surface_depth": 0.5,
+      "dive_max_depth": 81.1,
+      "battery_voltage_v": 11.78,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 25.9,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 28.4,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 81.1,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 36.5,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 15,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 11.2586,
+      "lon": 89.223,
+      "surface_depth": 0.5,
+      "dive_max_depth": 81.1,
+      "battery_voltage_v": 11.79,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.6,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 28.4,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 81.1,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 36.5,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    },
+    {
+      "cycle": 16,
+      "platform": "AUV-Glider-INCOIS-7902460",
+      "lat": 11.1581,
+      "lon": 89.544,
+      "surface_depth": 0.5,
+      "dive_max_depth": 80.2,
+      "battery_voltage_v": 11.79,
+      "pump_power_w": 1.12,
+      "internal_temp_c": 27.8,
+      "mission_phase": "Autonomous Transect SIH-26067",
+      "dive_profile": [
+        {
+          "step": 0,
+          "phase": "Surface Nav",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        },
+        {
+          "step": 1,
+          "phase": "Glider Dive",
+          "depth": 28.1,
+          "pitch_deg": -18.5
+        },
+        {
+          "step": 2,
+          "phase": "Deep Profiling",
+          "depth": 80.2,
+          "pitch_deg": -5.0
+        },
+        {
+          "step": 3,
+          "phase": "Buoyancy Climb",
+          "depth": 36.1,
+          "pitch_deg": 19.2
+        },
+        {
+          "step": 4,
+          "phase": "Satellite Uplink",
+          "depth": 0.5,
+          "pitch_deg": 0.0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+    "name": "glider",
+    "description": "Underwater Glider Parser",
+    "filePattern": ["GLIDER*.nc"],
+    "type": "profile",
+    "variables": ["temperature", "salinity"],
+    "format": "netcdf"
+}

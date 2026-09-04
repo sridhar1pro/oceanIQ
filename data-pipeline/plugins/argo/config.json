@@ -1,0 +1,9 @@
+{
+    "name": "argo",
+    "description": "Argo Profiling Float Parser",
+    "filePattern": ["R*.nc", "D*.nc", "SR*.nc", "SD*.nc"],
+    "excludePattern": ["BD*.nc", "*_Rtraj.nc", "D1900121*.nc", "D1900122*.nc"],
+    "type": "profile",
+    "variables": ["temperature", "salinity"],
+    "format": "netcdf"
+}

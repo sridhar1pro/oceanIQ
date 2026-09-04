@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/venv/
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build artifacts
+frontend/dist/
+dist/
+build/
+
+# Large raw scientific datasets (>100MB exceeds GitHub limits)
+data-pipeline/raw/
+*.nc
+*.nc4
+*.h5
+*.hdf5
+*.tar.gz
+*.zip
+
+# Environment & local configs
+.env
+.env.local
+*.log
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
