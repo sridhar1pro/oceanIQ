@@ -1,12 +1,12 @@
 import React from 'react'
 
 const PALETTES = {
-  thermal: { label: 'Thermal (SST)', colors: ['#0000ff', '#ff0000'] },
-  haline: { label: 'Haline (Salinity)', colors: ['#0044aa', '#00cc66'] },
-  oceanic: { label: 'Ocean Waves (Hm0)', colors: ['#042f2e', '#f59e0b'] },
-  acidic: { label: 'pH Acidity', colors: ['#ef4444', '#3b82f6'] },
-  altimetry: { label: 'Altimetry (SLA)', colors: ['#7c3aed', '#f97316'] },
-  viridis: { label: 'Viridis', colors: ['#440154', '#fde725'] },
+  thermal: { label: 'Thermal (cmocean SST)', colors: ['#03071e', '#06b6d4'] },
+  haline: { label: 'Haline (Oceanic Salinity)', colors: ['#020617', '#38bdf8'] },
+  oceanic: { label: 'Ocean Waves (Hm0)', colors: ['#020617', '#10b981'] },
+  acidic: { label: 'pH Acidity', colors: ['#dc2626', '#2563eb'] },
+  altimetry: { label: 'Altimetry (SLA)', colors: ['#7e22ce', '#10b981'] },
+  viridis: { label: 'Viridis', colors: ['#440154', '#5ec962'] },
 }
 
 const VAR_LABELS = {
@@ -28,7 +28,6 @@ export default function ControlsPanel({
   colorMax, setColorMax,
   logScale, setLogScale,
   opacity, setOpacity,
-  vertExag, setVertExag,
   vectorSpeed, setVectorSpeed,
   showDiscrepancy, setShowDiscrepancy,
   onlyDivergent, setOnlyDivergent,
@@ -289,22 +288,22 @@ export default function ControlsPanel({
             Current Vector Flow Speed
           </span>
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2dd4bf' }}>
-            {vectorSpeed?.toFixed(1) || '1.0'}×
+            {vectorSpeed?.toFixed(2) || '0.25'}×
           </span>
         </div>
         <input
           type="range"
-          min={0.1}
-          max={3.0}
-          step={0.1}
-          value={vectorSpeed || 1.0}
+          min={0.05}
+          max={1.0}
+          step={0.05}
+          value={vectorSpeed || 0.25}
           onChange={(e) => setVectorSpeed(parseFloat(e.target.value))}
           style={{ width: '100%', cursor: 'pointer', accentColor: '#2dd4bf', marginTop: 6 }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: '#94a3b8', marginTop: 2 }}>
-          <span>0.1× (Gentle)</span>
-          <span style={{ color: '#2dd4bf' }}>Monsoon Currents</span>
-          <span>3.0× (Rapid)</span>
+          <span>0.05× (Calm Drift)</span>
+          <span style={{ color: '#2dd4bf' }}>Realistic Oceanic Flow</span>
+          <span>1.0× (Brisk)</span>
         </div>
       </div>
 
@@ -329,13 +328,19 @@ export default function ControlsPanel({
             <div style={{
               width: '100%', height: 8, marginTop: 6, borderRadius: 4,
               background: palette === 'thermal' 
-                ? 'linear-gradient(to right, blue, cyan, green, yellow, red)' 
-                : `linear-gradient(to right, ${PALETTES[palette]?.colors[0]}, ${PALETTES[palette]?.colors[1]})`
+                ? 'linear-gradient(to right, #020617, #1e40af, #0284c7, #06b6d4, #38bdf8, #818cf8, #c084fc, #f43f5e)' 
+                : (palette === 'haline'
+                    ? 'linear-gradient(to right, #020617, #1e3a8a, #2563eb, #0ea5e9, #38bdf8)'
+                    : `linear-gradient(to right, ${PALETTES[palette]?.colors[0]}, ${PALETTES[palette]?.colors[1]})`)
             }} />
             {/* Numerical Labels for Colorbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: '#94a3b8', marginTop: 4 }}>
               <span>{colorMin.toFixed(1)} {getUnit(activeVar)}</span>
-              {palette === 'thermal' && <span style={{ color: '#facc15' }}>~29°C (Yellow Band)</span>}
+              {palette === 'thermal' ? (
+                <span style={{ color: '#38bdf8' }}>~28.5°C (Tropical Azure)</span>
+              ) : (
+                <span style={{ color: '#38bdf8' }}>Ocean Midpoint</span>
+              )}
               <span>{colorMax.toFixed(1)} {getUnit(activeVar)}</span>
             </div>
           </div>
@@ -364,25 +369,23 @@ export default function ControlsPanel({
             </div>
           </div>
 
-          {/* Opacity & Vert Exaggeration */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Opacity ({Math.round(opacity * 100)}%)</label>
-              <input
-                type="range" min={0.1} max={1} step={0.05}
-                value={opacity}
-                onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                style={sliderStyle}
-              />
+          {/* Surface Layer Opacity Control (3D Exaggeration Removed) */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <label style={labelStyle}>Surface Layer Opacity</label>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8' }}>
+                {Math.round(opacity * 100)}%
+              </span>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>3D Exaggeration ({vertExag.toFixed(1)}×)</label>
-              <input
-                type="range" min={0.5} max={8} step={0.5}
-                value={vertExag}
-                onChange={(e) => setVertExag(parseFloat(e.target.value))}
-                style={sliderStyle}
-              />
+            <input
+              type="range" min={0.1} max={1} step={0.05}
+              value={opacity}
+              onChange={(e) => setOpacity(parseFloat(e.target.value))}
+              style={sliderStyle}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: '#94a3b8', marginTop: 2 }}>
+              <span>10% (Transparent Subsurface)</span>
+              <span>100% (Solid Model Surface)</span>
             </div>
           </div>
         </div>

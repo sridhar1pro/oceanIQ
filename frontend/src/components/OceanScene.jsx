@@ -10,12 +10,70 @@ import OceanIQAssistant from './OceanIQAssistant.jsx'
 import WorldMonitorPanel from './WorldMonitorPanel.jsx'
 
 const PALETTES = {
-  thermal: ['#0000ff', '#ff0000'],
-  haline:  ['#0044aa', '#00cc66'],
-  oceanic: ['#042f2e', '#f59e0b'],
-  acidic:  ['#ef4444', '#3b82f6'],
-  altimetry: ['#7c3aed', '#f97316'],
-  viridis: ['#440154', '#fde725'],
+  thermal: ['#03071e', '#e11d48'],
+  haline:  ['#020617', '#38bdf8'],
+  oceanic: ['#020617', '#34d399'],
+  acidic:  ['#dc2626', '#2563eb'],
+  altimetry: ['#7c3aed', '#10b981'],
+  viridis: ['#440154', '#5ec962'],
+}
+
+const PALETTE_STOPS = {
+  thermal: [
+    { stop: 0.00, color: new THREE.Color('#020617') },
+    { stop: 0.20, color: new THREE.Color('#1e40af') },
+    { stop: 0.45, color: new THREE.Color('#0284c7') },
+    { stop: 0.65, color: new THREE.Color('#06b6d4') },
+    { stop: 0.78, color: new THREE.Color('#38bdf8') },
+    { stop: 0.88, color: new THREE.Color('#818cf8') },
+    { stop: 0.94, color: new THREE.Color('#c084fc') },
+    { stop: 1.00, color: new THREE.Color('#f43f5e') },
+  ],
+  haline: [
+    { stop: 0.00, color: new THREE.Color('#020617') },
+    { stop: 0.30, color: new THREE.Color('#1e3a8a') },
+    { stop: 0.60, color: new THREE.Color('#2563eb') },
+    { stop: 0.85, color: new THREE.Color('#0ea5e9') },
+    { stop: 1.00, color: new THREE.Color('#38bdf8') },
+  ],
+  oceanic: [
+    { stop: 0.00, color: new THREE.Color('#020617') },
+    { stop: 0.35, color: new THREE.Color('#0f766e') },
+    { stop: 0.70, color: new THREE.Color('#10b981') },
+    { stop: 1.00, color: new THREE.Color('#34d399') },
+  ],
+  acidic: [
+    { stop: 0.00, color: new THREE.Color('#dc2626') },
+    { stop: 0.50, color: new THREE.Color('#9333ea') },
+    { stop: 1.00, color: new THREE.Color('#2563eb') },
+  ],
+  altimetry: [
+    { stop: 0.00, color: new THREE.Color('#7e22ce') },
+    { stop: 0.50, color: new THREE.Color('#0284c7') },
+    { stop: 1.00, color: new THREE.Color('#10b981') },
+  ],
+  viridis: [
+    { stop: 0.00, color: new THREE.Color('#440154') },
+    { stop: 0.35, color: new THREE.Color('#31688e') },
+    { stop: 0.70, color: new THREE.Color('#21918c') },
+    { stop: 1.00, color: new THREE.Color('#5ec962') },
+  ]
+}
+
+function getSampledColor(norm, palName, outColor) {
+  const t = Math.max(0, Math.min(1, norm))
+  const stops = PALETTE_STOPS[palName] || PALETTE_STOPS.thermal
+  if (t <= stops[0].stop) return outColor.copy(stops[0].color)
+  if (t >= stops[stops.length - 1].stop) return outColor.copy(stops[stops.length - 1].color)
+  for (let i = 0; i < stops.length - 1; i++) {
+    const s0 = stops[i]
+    const s1 = stops[i + 1]
+    if (t >= s0.stop && t <= s1.stop) {
+      const localRatio = (t - s0.stop) / (s1.stop - s0.stop || 1e-5)
+      return outColor.lerpColors(s0.color, s1.color, localRatio)
+    }
+  }
+  return outColor.copy(stops[0].color)
 }
 
 // Helpers for Sub-step A
@@ -27,10 +85,6 @@ function createHeatmapCanvas(data, uniqueLats, uniqueLons, minVal, maxVal, palet
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   const imgData = ctx.createImageData(width, height);
-  
-  const palColors = PALETTES[palette] || PALETTES.thermal;
-  const color1 = new THREE.Color(palColors[0]);
-  const color2 = new THREE.Color(palColors[1]);
   const tempColor = new THREE.Color();
   
   // Create quick lookup maps for performance
@@ -52,11 +106,7 @@ function createHeatmapCanvas(data, uniqueLats, uniqueLons, minVal, maxVal, palet
     }
     normalized = Math.max(0, Math.min(1, normalized));
     
-    if (palette === 'thermal') {
-       tempColor.setHSL(0.66 * (1.0 - normalized), 1.0, 0.5);
-    } else {
-       tempColor.lerpColors(color1, color2, normalized);
-    }
+    getSampledColor(normalized, palette, tempColor);
     
     const idx = (y * width + x) * 4;
     imgData.data[idx] = tempColor.r * 255;
@@ -77,10 +127,6 @@ function createWallCanvas(dataSlices, perpPoints, isConstLat, constValue, minVal
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   const imgData = ctx.createImageData(width, height);
-  
-  const palColors = PALETTES[palette] || PALETTES.thermal;
-  const color1 = new THREE.Color(palColors[0]);
-  const color2 = new THREE.Color(palColors[1]);
   const tempColor = new THREE.Color();
   const perpMap = new Map(perpPoints.map((v, i) => [v, i]));
 
@@ -102,11 +148,7 @@ function createWallCanvas(dataSlices, perpPoints, isConstLat, constValue, minVal
       }
       normalized = Math.max(0, Math.min(1, normalized));
       
-      if (palette === 'thermal') {
-         tempColor.setHSL(0.66 * (1.0 - normalized), 1.0, 0.5);
-      } else {
-         tempColor.lerpColors(color1, color2, normalized);
-      }
+      getSampledColor(normalized, palette, tempColor);
       
       // y=0 is top depth
       const idx = (y * width + x) * 4;
@@ -159,8 +201,8 @@ export default function OceanScene() {
   const [showCoastalRisk, setShowCoastalRisk] = useState(true)
   const [showVessels, setShowVessels] = useState(true)
   const [showCalamities, setShowCalamities] = useState(true)
-  const [vectorSpeed, setVectorSpeed] = useState(1.0)
-  const vectorSpeedRef = useRef(1.0)
+  const [vectorSpeed, setVectorSpeed] = useState(0.25)
+  const vectorSpeedRef = useRef(0.25)
   useEffect(() => { vectorSpeedRef.current = vectorSpeed }, [vectorSpeed])
 
   const [isCoastalRiskModalOpen, setIsCoastalRiskModalOpen] = useState(false)
@@ -190,7 +232,6 @@ export default function OceanScene() {
   const [colorMax, setColorMax] = useState(0)
   const [logScale, setLogScale] = useState(false)
   const [opacity, setOpacity] = useState(0.9)
-  const [vertExag, setVertExag] = useState(1.0)
   const [outreachMode, setOutreachMode] = useState(false)
   const [measureMode, setMeasureMode] = useState(false)
   const measurePointsRef = useRef([])
@@ -474,17 +515,17 @@ export default function OceanScene() {
 
       // Pulsate discrepancy beacon rings & calamities scaled by vectorSpeed
       const vSpeed = vectorSpeedRef.current || 1.0
-      const timeSec = Date.now() * 0.003 * vSpeed
+      const timeSec = Date.now() * 0.0008 * vSpeed
 
       // Animate 3D Calamity Vortex & Seismic Rings
       if (calamitiesGroupRef.current) {
         calamitiesGroupRef.current.children.forEach(c => {
           c.children.forEach(part => {
             if (part.userData?.isCycloneVortex) {
-              part.rotation.z -= 0.025 * vSpeed
+              part.rotation.z -= 0.004 * vSpeed
             } else if (part.userData?.isSeismicRing) {
               const phase = part.userData.phase || 0
-              const s = 1.0 + 0.3 * Math.sin(timeSec * 3 + phase)
+              const s = 1.0 + 0.15 * Math.sin(timeSec * 2 + phase)
               part.scale.set(s, s, 1)
             }
           })
@@ -496,7 +537,7 @@ export default function OceanScene() {
         vesselsGroupRef.current.children.forEach(vMesh => {
           const halo = vMesh.children.find(c => c.userData?.isVesselHalo)
           if (halo) {
-            const s = 1.0 + 0.25 * Math.sin(timeSec * 2 + (vMesh.userData?.phase || 0))
+            const s = 1.0 + 0.12 * Math.sin(timeSec * 1.5 + (vMesh.userData?.phase || 0))
             halo.scale.set(s, s, 1)
           }
         })
@@ -507,11 +548,11 @@ export default function OceanScene() {
             if (c.userData?.isDiscrepancyRing) {
               const phase = c.userData.phase || 0
               if (c.userData.isHighAlert) {
-                const scale = 1.0 + 0.35 * Math.sin(timeSec * 4 + phase)
+                const scale = 1.0 + 0.18 * Math.sin(timeSec * 2 + phase)
                 c.scale.set(scale, scale, 1)
-                if (c.material) c.material.opacity = 0.5 + 0.45 * Math.sin(timeSec * 4 + phase)
+                if (c.material) c.material.opacity = 0.6 + 0.3 * Math.sin(timeSec * 2 + phase)
               } else {
-                const scale = 1.0 + 0.15 * Math.sin(timeSec * 2 + phase)
+                const scale = 1.0 + 0.08 * Math.sin(timeSec * 1.2 + phase)
                 c.scale.set(scale, scale, 1)
               }
             }
@@ -521,7 +562,7 @@ export default function OceanScene() {
 
       // Animate Glider along 3D Sawtooth Curve
       if (gliderVesselRef.current && gliderCurveRef.current) {
-        const loopT = (Date.now() * 0.00004) % 1.0
+        const loopT = (Date.now() * 0.000015 * vSpeed) % 1.0
         const vPos = gliderCurveRef.current.getPointAt(loopT)
         gliderVesselRef.current.position.copy(vPos)
         const nextPos = gliderCurveRef.current.getPointAt((loopT + 0.005) % 1.0)
@@ -533,7 +574,7 @@ export default function OceanScene() {
         coastalGroupRef.current.children.forEach(c => {
           if (c.userData?.isPortRadarRing) {
             const phase = c.userData.phase || 0
-            const s = 1.0 + 0.35 * Math.sin(timeSec * 3 + phase)
+            const s = 1.0 + 0.15 * Math.sin(timeSec * 1.5 + phase)
             c.scale.set(s, s, 1)
           }
         })
@@ -545,7 +586,7 @@ export default function OceanScene() {
         satellitesGroupRef.current.children.forEach(obj => {
           if (obj.userData?.isSatellite) {
             const data = obj.userData
-            data.u = (data.u + data.orbitSpeed * vSpeed) % (2 * Math.PI)
+            data.u = (data.u + data.orbitSpeed * vSpeed * 0.25) % (2 * Math.PI)
             const u = data.u
             const r = data.rOrb
             const inc = data.incRad
@@ -567,7 +608,7 @@ export default function OceanScene() {
             // Pulsating halo
             const halo = obj.children.find(c => c.userData?.isSatHalo)
             if (halo) {
-              const s = 1.0 + 0.25 * Math.sin(timeSec * 3 + (data.satIdx || 0))
+              const s = 1.0 + 0.12 * Math.sin(timeSec * 1.5 + (data.satIdx || 0))
               halo.scale.set(s, s, 1)
             }
 
@@ -1185,8 +1226,7 @@ export default function OceanScene() {
 
       let normalized = (d.value - currentMin) / (currentMax - currentMin || 1)
       normalized = Math.max(0, Math.min(1, normalized))
-      if (palette === 'thermal') tempC.setHSL(0.66 * (1.0 - normalized), 1.0, 0.5)
-      else tempC.lerpColors(c1, c2, normalized)
+      getSampledColor(normalized, palette, tempC)
 
       const radLat = d.lat * Math.PI / 180
       const radLon = (d.lon + 180) * Math.PI / 180
@@ -1222,14 +1262,6 @@ export default function OceanScene() {
     }
   }, [activeVar, gridDataReady, activeDepth, colorMin, colorMax, palette])
 
-  // Live update vertical exaggeration
-  useEffect(() => {
-    if (!volumeGroupRef.current) return
-    volumeGroupRef.current.scale.set(1, vertExag, 1)
-    if (markersRef.current) {
-      markersRef.current.scale.set(1, vertExag, 1)
-    }
-  }, [vertExag])
 
   // Fetch Instruments & Draw Profiles
   useEffect(() => {
@@ -1300,7 +1332,7 @@ export default function OceanScene() {
           const biasVal = Math.abs(inst.bias ?? 0)
           const isHighAlert = biasVal >= 1.5
           const isModerate = biasVal >= 0.5 && biasVal < 1.5
-          const haloColor = isHighAlert ? 0xef4444 : (isModerate ? 0xf59e0b : 0x10b981)
+          const haloColor = isHighAlert ? 0xef4444 : (isModerate ? 0xf97316 : 0x06b6d4)
 
           const maxProfileDepth = profile[profile.length - 1]?.depth || 2000
           const soundingGeo = new THREE.BufferGeometry().setFromPoints([
@@ -1393,7 +1425,7 @@ export default function OceanScene() {
           group.add(mesh)
         })
 
-        group.scale.set(1, vertExag, 1)
+        group.scale.set(1, 1, 1)
         scene.add(group)
         markersRef.current = group
       })
@@ -1503,7 +1535,7 @@ export default function OceanScene() {
         gliderGroupRef.current = group
       })
       .catch(err => console.error('Error rendering glider:', err))
-  }, [showGlider, vertExag])
+  }, [showGlider])
 
   // ── Render Coastal Multi-Hazard Port Markers ──
   useEffect(() => {
@@ -2079,7 +2111,6 @@ export default function OceanScene() {
           colorMax={colorMax} setColorMax={setColorMax}
           logScale={logScale} setLogScale={setLogScale}
           opacity={opacity} setOpacity={setOpacity}
-          vertExag={vertExag} setVertExag={setVertExag}
           vectorSpeed={vectorSpeed} setVectorSpeed={setVectorSpeed}
           showDiscrepancy={showDiscrepancy} setShowDiscrepancy={setShowDiscrepancy}
           onlyDivergent={onlyDivergent} setOnlyDivergent={setOnlyDivergent}
@@ -2123,7 +2154,15 @@ export default function OceanScene() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#e2e8f0', marginBottom: 8 }}>Model Grid</span>
           <div style={{ display: 'flex', height: 110 }}>
-            <div style={{ width: 10, borderRadius: 5, background: palette === 'thermal' ? 'linear-gradient(to top, blue, cyan, green, yellow, red)' : `linear-gradient(to top, ${(PALETTES[palette] || PALETTES.thermal)[0]}, ${(PALETTES[palette] || PALETTES.thermal)[1]})` }} />
+            <div style={{
+              width: 10,
+              borderRadius: 5,
+              background: palette === 'thermal'
+                ? 'linear-gradient(to top, #020617, #1e40af, #0284c7, #06b6d4, #38bdf8, #818cf8, #c084fc, #f43f5e)'
+                : (palette === 'haline'
+                    ? 'linear-gradient(to top, #020617, #1e3a8a, #2563eb, #0ea5e9, #38bdf8)'
+                    : `linear-gradient(to top, ${(PALETTES[palette] || PALETTES.thermal)[0]}, ${(PALETTES[palette] || PALETTES.thermal)[1]})`)
+            }} />
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginLeft: 8, fontSize: '0.68rem', color: '#94a3b8', height: '100%' }}>
               <span>{colorMax.toFixed(1)}</span>
               <span>{colorMin.toFixed(1)}</span>
@@ -2140,12 +2179,12 @@ export default function OceanScene() {
               <span style={{ color: '#ef4444' }}>&gt;1.5°C</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
-              <span style={{ color: '#f59e0b' }}>0.5-1.5°C</span>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f97316' }} />
+              <span style={{ color: '#f97316' }}>0.5-1.5°C</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-              <span style={{ color: '#10b981' }}>&lt;0.5°C</span>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#06b6d4' }} />
+              <span style={{ color: '#06b6d4' }}>&lt;0.5°C</span>
             </div>
           </div>
         </div>
