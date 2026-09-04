@@ -6,7 +6,15 @@ export default function PointAnalytics({ lat, lon, activeVar, activeDepth, activ
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const VAR_SHORT = { thetao: 'Temperature (°C)', so: 'Salinity (PSU)', uo: 'Current East (m/s)', vo: 'Current North (m/s)' };
+  const VAR_SHORT = {
+    thetao: 'Temperature (°C)',
+    so: 'Salinity (PSU)',
+    uo: 'Current East (m/s)',
+    vo: 'Current North (m/s)',
+    VHM0: 'Wave Height (m)',
+    ph: 'Ocean pH',
+    sla: 'Sea Level Anomaly (m)'
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -24,19 +32,23 @@ export default function PointAnalytics({ lat, lon, activeVar, activeDepth, activ
       .then(r => r.json())
       .then(res => {
         if (isMounted) {
+          if (!Array.isArray(res)) res = [];
           // Format data for Recharts
           let formatted = [];
           if (activeTab === 'timeseries') {
             formatted = res.map(d => ({
               x: new Date(d.time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-              value: Number(d.value.toFixed(2))
+              value: Number(d.value.toFixed(2)),
+              nearestLat: d.nearest_lat,
+              nearestLon: d.nearest_lon
             }));
           } else {
-            // Depth profile should ideally have depth on Y axis (inverted), but for simple line chart we can put depth on X
             formatted = res.map(d => ({
               x: `${d.depth}m`,
               depthNum: Number(d.depth),
-              value: Number(d.value.toFixed(2))
+              value: Number(d.value.toFixed(2)),
+              nearestLat: d.nearest_lat,
+              nearestLon: d.nearest_lon
             })).sort((a,b) => a.depthNum - b.depthNum);
           }
           setData(formatted);
@@ -139,8 +151,13 @@ export default function PointAnalytics({ lat, lon, activeVar, activeDepth, activ
       </div>
       
       {/* Footer Info */}
-      <div style={{ marginTop: '12px', fontSize: '0.7rem', color: '#64748b', textAlign: 'center' }}>
+      <div style={{ marginTop: '12px', fontSize: '0.72rem', color: '#94a3b8', textAlign: 'center', lineHeight: 1.4 }}>
         {activeTab === 'timeseries' ? `Showing forecast trend at ${activeDepth}m depth.` : `Showing vertical slice on ${new Date(activeTime).toLocaleDateString('en-GB')}.`}
+        {data && data[0]?.nearestLat != null && (
+          <div style={{ color: '#38bdf8', fontSize: '0.66rem', marginTop: 3 }}>
+            📍 Nearest Marine Observation: {data[0].nearestLat.toFixed(2)}°N, {data[0].nearestLon.toFixed(2)}°E
+          </div>
+        )}
       </div>
     </div>
   );
