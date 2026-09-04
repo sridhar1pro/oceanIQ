@@ -10,6 +10,21 @@ import shutil
 import subprocess
 import sys
 
+# Auto-load .env if present
+_env_path = os.path.join(os.path.dirname(__file__), ".env")
+if not os.path.exists(_env_path):
+    _env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+if os.path.exists(_env_path):
+    try:
+        with open(_env_path, "r", encoding="utf-8") as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip())
+    except Exception as _e:
+        pass
+
 app = FastAPI(title="AQUA-VIS Backend", description="3D Ocean Visualization API for SIH 26067")
 
 app.add_middleware(
@@ -727,16 +742,28 @@ def ai_query(req: AIQueryRequest):
                 "Provide a direct, scientifically rigorous, concise explanation and identify if any 3D twin action should be triggered."
             )
             
-            response_obj = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=gemini_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.3
-                )
-            )
+            models_to_try = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+            response_obj = None
+            used_model = "gemini-3.6-flash"
+            for mod in models_to_try:
+                try:
+                    response_obj = client.models.generate_content(
+                        model=mod,
+                        contents=gemini_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                            temperature=0.3
+                        )
+                    )
+                    if response_obj and response_obj.text:
+                        used_model = mod
+                        break
+                except Exception:
+                    continue
             
-            ai_text = response_obj.text if response_obj.text else ""
+            ai_text = response_obj.text if (response_obj and response_obj.text) else ""
+            if not ai_text:
+                raise ValueError("No response from Gemini models")
             
             # Extract basic action intent from user query
             action = "INFO"
@@ -776,7 +803,7 @@ def ai_query(req: AIQueryRequest):
                 "open_panel": open_panel,
                 "vector_speed": vector_speed,
                 "response": ai_text,
-                "engine": "Gemini 2.5 Flash"
+                "engine": f"Google Gemini ({used_model} via google-genai)"
             }
         except Exception as e:
             # Gracefully fall back to expert ocean physics engine if API fails or key is invalid
