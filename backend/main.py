@@ -254,7 +254,8 @@ def get_instruments():
         "type": d.get("type", "argo"),
         "region": d.get("region", "Global Ocean"),
         "bias": d.get("bias", 0.0),
-        "discrepancy_status": d.get("discrepancy_status", "Model Agreement (<0.5°C)")
+        "discrepancy_status": d.get("discrepancy_status", "Model Agreement (<0.5°C)"),
+        "profile": d.get("profile", [])
     } for d in data]
 
 @app.get("/api/instruments/{instrument_id}/profile")
@@ -266,8 +267,13 @@ def get_instrument_profile(instrument_id: str):
     with open(filepath, "r") as f:
         data = json.load(f)
         
+    clean_id = str(instrument_id).strip()
+    clean_num = clean_id.replace("WMO_", "")
+
     for inst in data:
-        if inst["id"] == instrument_id:
+        inst_id = str(inst.get("id", "")).strip()
+        inst_num = inst_id.replace("WMO_", "")
+        if inst_id == clean_id or inst_num == clean_num or f"WMO_{clean_num}" == inst_id:
             return {
                 "id": inst["id"],
                 "lat": inst["lat"],
@@ -1133,7 +1139,7 @@ def ai_query(req: AIQueryRequest):
             f"🤖 **OceanIQ Intelligence Response**:\n\n"
             f"Analyzing query: *'{req.query}'*.\n\n"
             "AQUA-VIS provides operational oceanographic intelligence across 3 core pillars:\n"
-            "1. **3D Ocean Science Twin**: Slicing 9 depth levels (0–2000m), tracking 289 real Argo CTD floats, and continuous AUV glider sawtooth tracking.\n"
+            "1. **3D Ocean Science Twin**: Slicing 9 depth levels (0–2000m), tracking 659 real-world Argo CTD floats, and continuous AUV glider sawtooth tracking.\n"
             "2. **Maritime OSINT Intelligence**: Live AIS vessel tracking, shipping choke points, and port surveillance cameras.\n"
             "3. **Disaster Early Warning**: IMD Cyclonic Storm cones, ITEWC Tsunami statuses, and Marine Heatwaves."
         )
@@ -1191,6 +1197,8 @@ async def upload_data(file: UploadFile = File(...)):
             result["parser"] = "csv"
         
         result["status"] = "processed"
+        # Invalidate in-memory depth slice cache so fresh grids are immediately served
+        _GRID_CACHE.clear()
     except subprocess.TimeoutExpired:
         result["status"] = "timeout"
         result["error"] = "Parser timed out after 120 seconds"

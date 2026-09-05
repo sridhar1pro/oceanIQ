@@ -122,10 +122,9 @@ export default function ProfilePanel({ profileData, instrumentId, outreachMode, 
           </div>
 
           <ResponsiveContainer width="100%" height={230}>
-            <LineChart data={sorted} margin={{ top: 5, right: 15, bottom: 5, left: 0 }}>
+            <LineChart layout="vertical" data={sorted} margin={{ top: 5, right: 15, bottom: 5, left: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis
-                dataKey="temperature"
                 type="number"
                 tick={{ fill: '#94a3b8', fontSize: 10 }}
                 stroke="rgba(99,102,241,0.2)"
@@ -133,11 +132,10 @@ export default function ProfilePanel({ profileData, instrumentId, outreachMode, 
               />
               <YAxis
                 dataKey="depth"
-                reversed
                 type="number"
                 tick={{ fill: '#94a3b8', fontSize: 10 }}
                 stroke="rgba(99,102,241,0.2)"
-                width={36}
+                width={40}
               />
               <Tooltip
                 contentStyle={{
@@ -189,10 +187,9 @@ export default function ProfilePanel({ profileData, instrumentId, outreachMode, 
           </div>
 
           <ResponsiveContainer width="100%" height={230}>
-            <LineChart data={sorted} margin={{ top: 5, right: 15, bottom: 5, left: 0 }}>
+            <LineChart layout="vertical" data={sorted} margin={{ top: 5, right: 15, bottom: 5, left: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis
-                dataKey="salinity"
                 type="number"
                 tick={{ fill: '#94a3b8', fontSize: 10 }}
                 stroke="rgba(99,102,241,0.2)"
@@ -200,11 +197,10 @@ export default function ProfilePanel({ profileData, instrumentId, outreachMode, 
               />
               <YAxis
                 dataKey="depth"
-                reversed
                 type="number"
                 tick={{ fill: '#94a3b8', fontSize: 10 }}
                 stroke="rgba(99,102,241,0.2)"
-                width={36}
+                width={40}
               />
               <Tooltip
                 contentStyle={{

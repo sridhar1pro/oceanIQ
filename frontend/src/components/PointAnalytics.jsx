@@ -123,22 +123,22 @@ export default function PointAnalytics({ lat, lon, activeVar, activeDepth, activ
           </div>
         ) : data && data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="x" stroke="#64748b" fontSize={10} tickMargin={8} />
-              <YAxis stroke="#64748b" fontSize={10} domain={['auto', 'auto']} />
+            <LineChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <XAxis dataKey="x" stroke="#94a3b8" fontSize={10} tickMargin={8} />
+              <YAxis stroke="#94a3b8" fontSize={10} domain={['auto', 'auto']} width={35} />
               <Tooltip 
-                contentStyle={{ background: 'rgba(15,23,42,0.9)', border: '1px solid #3b82f6', borderRadius: '6px' }}
-                itemStyle={{ color: '#60a5fa' }}
-                labelStyle={{ color: '#cbd5e1' }}
+                contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid #38bdf8', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                itemStyle={{ color: '#38bdf8', fontWeight: 600 }}
+                labelStyle={{ color: '#f8fafc', fontWeight: 700 }}
               />
               <Line 
                 type="monotone" 
                 dataKey="value" 
-                stroke="#3b82f6" 
-                strokeWidth={2} 
-                dot={{ r: 3, fill: '#3b82f6' }} 
-                activeDot={{ r: 5 }} 
+                stroke="#38bdf8" 
+                strokeWidth={2.5} 
+                dot={{ r: 3.5, fill: '#38bdf8', stroke: '#0284c7', strokeWidth: 1 }} 
+                activeDot={{ r: 6, fill: '#22d3ee' }} 
                 name={VAR_SHORT[activeVar] || activeVar}
               />
             </LineChart>

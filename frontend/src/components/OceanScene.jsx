@@ -1369,22 +1369,15 @@ export default function OceanScene() {
         const latCenter = coordCenterRef.current.latCenter
         const lonCenter = coordCenterRef.current.lonCenter
 
-        // Load profiles for each instrument
-        const promises = instruments.map(inst => 
-          fetch(`/api/instruments/${inst.id}/profile`)
-            .then(r => r.json())
-            .catch(() => null)
-        )
-        const profiles = await Promise.all(promises)
-
         const palColors = PALETTES[palette] || PALETTES.thermal
         const c1 = new THREE.Color(palColors[0])
         const c2 = new THREE.Color(palColors[1])
         const tempC = new THREE.Color()
 
-        instruments.forEach((inst, idx) => {
-          const profileRaw = profiles[idx]
-          const profile = Array.isArray(profileRaw) ? profileRaw : (profileRaw?.profile || [])
+        instruments.forEach((inst) => {
+          const profile = Array.isArray(inst.profile) && inst.profile.length >= 2
+            ? inst.profile
+            : []
           if (!profile || profile.length < 2) return
 
           const R_BASE = volumeGroupRef.current?.userData?.R_BASE || 20
@@ -1455,6 +1448,14 @@ export default function OceanScene() {
           pinMesh.visible = showDiscrepancy
           mesh.add(pinMesh)
 
+          // Invisible Raycast Hitbox for reliable user click & hover detection
+          const hitBoxGeo = new THREE.SphereGeometry(0.5, 8, 8)
+          const hitBoxMat = new THREE.MeshBasicMaterial({ visible: false })
+          const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat)
+          hitBox.position.set(0, 0, 0.08)
+          hitBox.userData = { isInstrumentHitbox: true }
+          mesh.add(hitBox)
+
           mesh.userData = { 
             id: inst.id, 
             isInstrument: true,
@@ -1464,7 +1465,7 @@ export default function OceanScene() {
             fullInstrument: inst,
             latestTemp: profile[0].temperature,
             latestSalt: profile[0].salinity,
-            endPosition: points[points.length - 1]
+            endPosition: new THREE.Vector3(0, 0, -(maxProfileDepth * DS))
           }
           
           if (labelsContainerRef.current) {
